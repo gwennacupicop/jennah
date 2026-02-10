@@ -1,11 +1,12 @@
 module github.com/alphauslabs/jennah
 
-go 1.25.5
+go 1.25
 
 require (
 	cloud.google.com/go/spanner v1.87.0
 	connectrpc.com/connect v1.19.1
 	github.com/buraksezer/consistent v0.10.0
+	github.com/google/uuid v1.6.0
 	google.golang.org/api v0.256.0
 	google.golang.org/protobuf v1.36.11
 )
@@ -29,7 +30,6 @@ require (
 	github.com/go-logr/stdr v1.2.2 // indirect
 	github.com/golang/groupcache v0.0.0-20210331224755-41bb18bfe9da // indirect
 	github.com/google/s2a-go v0.1.9 // indirect
-	github.com/google/uuid v1.6.0 // indirect
 	github.com/googleapis/enterprise-certificate-proxy v0.3.7 // indirect
 	github.com/googleapis/gax-go/v2 v2.15.0 // indirect
 	github.com/planetscale/vtprotobuf v0.6.1-0.20240319094008-0393e58bdf10 // indirect
