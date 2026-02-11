@@ -8,6 +8,7 @@ require (
 	connectrpc.com/connect v1.19.1
 	github.com/buraksezer/consistent v0.10.0
 	github.com/google/uuid v1.6.0
+	github.com/spf13/cobra v1.10.2
 	google.golang.org/api v0.256.0
 	google.golang.org/protobuf v1.36.11
 )
@@ -35,7 +36,9 @@ require (
 	github.com/google/s2a-go v0.1.9 // indirect
 	github.com/googleapis/enterprise-certificate-proxy v0.3.7 // indirect
 	github.com/googleapis/gax-go/v2 v2.15.0 // indirect
+	github.com/inconshreveable/mousetrap v1.1.0 // indirect
 	github.com/planetscale/vtprotobuf v0.6.1-0.20240319094008-0393e58bdf10 // indirect
+	github.com/spf13/pflag v1.0.9 // indirect
 	github.com/spiffe/go-spiffe/v2 v2.5.0 // indirect
 	github.com/zeebo/errs v1.4.0 // indirect
 	go.opencensus.io v0.24.0 // indirect
