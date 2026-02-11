@@ -23,55 +23,55 @@ type GatewayServer struct {
 }
 
 type Tenant struct {
-	TenantID      string
+	TenantId      string
 	UserEmail     string
 	OAuthProvider string
-	OAuthUserID   string
+	OAuthUserId   string
 	CreatedAt     time.Time
 }
 
 func extractOAuthUser(headers http.Header) (*OAuthUser, error) {
 	email := headers.Get("X-OAuth-Email")
-	oauthUserID := headers.Get("X-OAuth-UserID")
+	oauthUserId := headers.Get("X-OAuth-UserID")
 	provider := headers.Get("X-OAuth-Provider")
 
-	if email == "" || oauthUserID == "" || provider == "" {
+	if email == "" || oauthUserId == "" || provider == "" {
 		return nil, errors.New("missing required OAuth headers")
 	}
 
 	return &OAuthUser{
 		Email:    email,
-		UserID:   oauthUserID,
+		UserId:   oauthUserId,
 		Provider: provider,
 	}, nil
 }
 
 type OAuthUser struct {
 	Email    string
-	UserID   string
+	UserId   string
 	Provider string
 }
 
 func (s *GatewayServer) getOrCreateTenant(oauthUser *OAuthUser) (string, error) {
-	tenantID, exists := s.oauthToTenant[oauthUser.UserID]
+	tenantId, exists := s.oauthToTenant[oauthUser.UserId]
 	if exists {
-		log.Printf("Found existing tenant for user %s: tenant_id=%s", oauthUser.Email, tenantID)
-		return tenantID, nil
+		log.Printf("Found existing tenant for user %s: tenant_id=%s", oauthUser.Email, tenantId)
+		return tenantId, nil
 	}
 
-	tenantID = uuid.New().String()
+	tenantId = uuid.New().String()
 	tenant := &Tenant{
-		TenantID:      tenantID,
+		TenantId:      tenantId,
 		UserEmail:     oauthUser.Email,
 		OAuthProvider: oauthUser.Provider,
-		OAuthUserID:   oauthUser.UserID,
+		OAuthUserId:   oauthUser.UserId,
 		CreatedAt:     time.Now(),
 	}
-	s.tenants[tenantID] = tenant
-	s.oauthToTenant[oauthUser.UserID] = tenantID
+	s.tenants[tenantId] = tenant
+	s.oauthToTenant[oauthUser.UserId] = tenantId
 	//TODO: add database persistence here
-	log.Printf("Created new tenant for user %s: tenant_id=%s", oauthUser.Email, tenantID)
-	return tenantID, nil
+	log.Printf("Created new tenant for user %s: tenant_id=%s", oauthUser.Email, tenantId)
+	return tenantId, nil
 }
 
 func (s *GatewayServer) GetCurrentTenant(
@@ -84,15 +84,15 @@ func (s *GatewayServer) GetCurrentTenant(
 		return nil, connect.NewError(connect.CodeUnauthenticated, err)
 	}
 
-	tenantID, err := s.getOrCreateTenant(oauthUser)
+	tenantId, err := s.getOrCreateTenant(oauthUser)
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
 
-	tenant := s.tenants[tenantID]
+	tenant := s.tenants[tenantId]
 
 	response := connect.NewResponse(&jennahv1.GetCurrentTenantResponse{
-		TenantId:      tenant.TenantID,
+		TenantId:      tenant.TenantId,
 		UserEmail:     tenant.UserEmail,
 		OauthProvider: tenant.OAuthProvider,
 		CreatedAt:     tenant.CreatedAt.Format(time.RFC3339),
@@ -111,15 +111,15 @@ func (s *GatewayServer) SubmitJob(
 	if err != nil {
 		return nil, connect.NewError(connect.CodeUnauthenticated, err)
 	}
-	tenantID, err := s.getOrCreateTenant(oauthUser)
+	tenantId, err := s.getOrCreateTenant(oauthUser)
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
-	log.Printf("Job submission from user %s (tenant_id=%s)", oauthUser.Email, tenantID)
+	log.Printf("Job submission from user %s (tenant_id=%s)", oauthUser.Email, tenantId)
 	if req.Msg.ImageUri == "" {
 		return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("image_uri is required"))
 	}
-	workerIP := s.router.GetWorkerIP(tenantID)
+	workerIP := s.router.GetWorkerIP(tenantId)
 	if workerIP == "" {
 		return nil, connect.NewError(connect.CodeInternal, errors.New("no worker found for tenant_id"))
 	}
@@ -132,7 +132,7 @@ func (s *GatewayServer) SubmitJob(
 		ImageUri: req.Msg.ImageUri,
 		EnvVars:  req.Msg.EnvVars,
 	})
-	workerReq.Header().Set("X-Tenant-ID", tenantID)
+	workerReq.Header().Set("X-Tenant-ID", tenantId)
 	response, err := workerClient.SubmitJob(ctx, workerReq)
 	if err != nil {
 		log.Printf("ERROR: Worker %s failed: %v", workerIP, err)
