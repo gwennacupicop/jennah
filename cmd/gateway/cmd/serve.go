@@ -32,7 +32,7 @@ var serveCmd = &cobra.Command{
 
 func init() {
 	serveCmd.Flags().StringVar(&port, "port", "8080", "Port to listen on")
-	serveCmd.Flags().StringVar(&workerIPs, "worker-ips", "10.128.0.1,10.128.0.2,10.128.0.3", "Comma-separated list of worker IPs")
+	serveCmd.Flags().StringVar(&workerIPs, "worker-ips", "10.146.0.26", "Comma-separated list of worker IPs")
 }
 
 func runServe(cmd *cobra.Command, args []string) error {
