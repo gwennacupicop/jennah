@@ -6,9 +6,13 @@ package jennah.v1;
 option go_package = "github.com/alphauslabs/jennah/gen/proto;jennahv1";
 
 
+// Main service definition for Jennah.
 service DeploymentService {
+  // Submit a job for deployment.
   rpc SubmitJob(SubmitJobRequest) returns (SubmitJobResponse);
+  // List all jobs for the current tenant.
   rpc ListJobs(ListJobsRequest) returns (ListJobsResponse);
+  // Get the current tenant's information.
   rpc GetCurrentTenant(GetCurrentTenantRequest) returns (GetCurrentTenantResponse);
 }
 
@@ -45,6 +49,6 @@ message GetCurrentTenantRequest {
 message GetCurrentTenantResponse {
   string tenant_id = 1;
   string user_email = 2;
-  string oauth_provider = 3;  // "google", "github"
+  string oauth_provider = 3; // "google", "github"
   string created_at = 4;
 }

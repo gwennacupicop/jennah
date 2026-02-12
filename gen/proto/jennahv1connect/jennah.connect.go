@@ -46,8 +46,11 @@ const (
 
 // DeploymentServiceClient is a client for the jennah.v1.DeploymentService service.
 type DeploymentServiceClient interface {
+	// Submit a job for deployment.
 	SubmitJob(context.Context, *connect.Request[proto.SubmitJobRequest]) (*connect.Response[proto.SubmitJobResponse], error)
+	// List all jobs for the current tenant.
 	ListJobs(context.Context, *connect.Request[proto.ListJobsRequest]) (*connect.Response[proto.ListJobsResponse], error)
+	// Get the current tenant's information.
 	GetCurrentTenant(context.Context, *connect.Request[proto.GetCurrentTenantRequest]) (*connect.Response[proto.GetCurrentTenantResponse], error)
 }
 
@@ -107,8 +110,11 @@ func (c *deploymentServiceClient) GetCurrentTenant(ctx context.Context, req *con
 
 // DeploymentServiceHandler is an implementation of the jennah.v1.DeploymentService service.
 type DeploymentServiceHandler interface {
+	// Submit a job for deployment.
 	SubmitJob(context.Context, *connect.Request[proto.SubmitJobRequest]) (*connect.Response[proto.SubmitJobResponse], error)
+	// List all jobs for the current tenant.
 	ListJobs(context.Context, *connect.Request[proto.ListJobsRequest]) (*connect.Response[proto.ListJobsResponse], error)
+	// Get the current tenant's information.
 	GetCurrentTenant(context.Context, *connect.Request[proto.GetCurrentTenantRequest]) (*connect.Response[proto.GetCurrentTenantResponse], error)
 }
 
