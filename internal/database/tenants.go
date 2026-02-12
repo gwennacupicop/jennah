@@ -9,11 +9,11 @@ import (
 )
 
 // InsertTenant creates a new tenant
-func (c *Client) InsertTenant(ctx context.Context, tenantID, name string) error {
+func (c *Client) InsertTenant(ctx context.Context, tenantID, userEmail, oauthProvider, oauthUserId string) error {
 	_, err := c.client.Apply(ctx, []*spanner.Mutation{
 		spanner.Insert("Tenants",
-			[]string{"TenantId", "Name", "CreatedAt", "UpdatedAt"},
-			[]interface{}{tenantID, name, spanner.CommitTimestamp, spanner.CommitTimestamp},
+			[]string{"TenantId", "UserEmail", "OAuthProvider", "OAuthUserId", "CreatedAt", "UpdatedAt"},
+			[]interface{}{tenantID, userEmail, oauthProvider, oauthUserId, spanner.CommitTimestamp, spanner.CommitTimestamp},
 		),
 	})
 	if err != nil {
@@ -26,7 +26,7 @@ func (c *Client) InsertTenant(ctx context.Context, tenantID, name string) error 
 func (c *Client) GetTenant(ctx context.Context, tenantID string) (*Tenant, error) {
 	row, err := c.client.Single().ReadRow(ctx, "Tenants",
 		spanner.Key{tenantID},
-		[]string{"TenantId", "Name", "CreatedAt", "UpdatedAt"},
+		[]string{"TenantId", "UserEmail", "OAuthProvider", "OAuthUserId", "CreatedAt", "UpdatedAt"},
 	)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get tenant: %w", err)
@@ -43,7 +43,7 @@ func (c *Client) GetTenant(ctx context.Context, tenantID string) (*Tenant, error
 // ListTenants returns all tenants
 func (c *Client) ListTenants(ctx context.Context) ([]*Tenant, error) {
 	stmt := spanner.Statement{
-		SQL: `SELECT TenantId, Name, CreatedAt, UpdatedAt FROM Tenants ORDER BY CreatedAt DESC`,
+		SQL: `SELECT TenantId, UserEmail, OAuthProvider, OAuthUserId, CreatedAt, UpdatedAt FROM Tenants ORDER BY CreatedAt DESC`,
 	}
 
 	iter := c.client.Single().Query(ctx, stmt)
@@ -67,6 +67,38 @@ func (c *Client) ListTenants(ctx context.Context) ([]*Tenant, error) {
 	}
 
 	return tenants, nil
+}
+
+// GetTenantByOAuth retrieves a tenant by OAuth provider and user ID
+func (c *Client) GetTenantByOAuth(ctx context.Context, oauthProvider, oauthUserId string) (*Tenant, error) {
+	stmt := spanner.Statement{
+		SQL: `SELECT TenantId, UserEmail, OAuthProvider, OAuthUserId, CreatedAt, UpdatedAt 
+		      FROM Tenants 
+		      WHERE OAuthProvider = @provider AND OAuthUserId = @userId 
+		      LIMIT 1`,
+		Params: map[string]interface{}{
+			"provider": oauthProvider,
+			"userId":   oauthUserId,
+		},
+	}
+
+	iter := c.client.Single().Query(ctx, stmt)
+	defer iter.Stop()
+
+	row, err := iter.Next()
+	if err == iterator.Done {
+		return nil, nil // No tenant found
+	}
+	if err != nil {
+		return nil, fmt.Errorf("failed to query tenant by OAuth: %w", err)
+	}
+
+	var tenant Tenant
+	if err := row.ToStruct(&tenant); err != nil {
+		return nil, fmt.Errorf("failed to parse tenant: %w", err)
+	}
+
+	return &tenant, nil
 }
 
 // DeleteTenant removes a tenant and all its jobs (CASCADE)

@@ -9,12 +9,12 @@ import (
 	"google.golang.org/api/iterator"
 )
 
-// InsertJob creates a new job
+// InsertJob creates a new job with PENDING status
 func (c *Client) InsertJob(ctx context.Context, tenantID, jobID, imageUri string, commands []string) error {
 	_, err := c.client.Apply(ctx, []*spanner.Mutation{
 		spanner.Insert("Jobs",
-			[]string{"TenantId", "JobId", "Status", "ImageUri", "Commands", "CreatedAt", "UpdatedAt"},
-			[]interface{}{tenantID, jobID, JobStatusPending, imageUri, commands, spanner.CommitTimestamp, spanner.CommitTimestamp},
+			[]string{"TenantId", "JobId", "Status", "ImageUri", "Commands", "CreatedAt", "UpdatedAt", "RetryCount"},
+			[]interface{}{tenantID, jobID, JobStatusPending, imageUri, commands, spanner.CommitTimestamp, spanner.CommitTimestamp, 0},
 		),
 	})
 	if err != nil {
@@ -27,7 +27,7 @@ func (c *Client) InsertJob(ctx context.Context, tenantID, jobID, imageUri string
 func (c *Client) GetJob(ctx context.Context, tenantID, jobID string) (*Job, error) {
 	row, err := c.client.Single().ReadRow(ctx, "Jobs",
 		spanner.Key{tenantID, jobID},
-		[]string{"TenantId", "JobId", "Status", "ImageUri", "Commands", "CreatedAt", "UpdatedAt", "CompletedAt", "ErrorMessage"},
+		[]string{"TenantId", "JobId", "Status", "ImageUri", "Commands", "CreatedAt", "ScheduledAt", "StartedAt", "CompletedAt", "UpdatedAt", "ErrorMessage", "RetryCount"},
 	)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get job: %w", err)
@@ -44,7 +44,7 @@ func (c *Client) GetJob(ctx context.Context, tenantID, jobID string) (*Job, erro
 // ListJobs returns all jobs for a tenant
 func (c *Client) ListJobs(ctx context.Context, tenantID string) ([]*Job, error) {
 	stmt := spanner.Statement{
-		SQL: `SELECT TenantId, JobId, Status, ImageUri, Commands, CreatedAt, UpdatedAt, CompletedAt, ErrorMessage 
+		SQL: `SELECT TenantId, JobId, Status, ImageUri, Commands, CreatedAt, ScheduledAt, StartedAt, CompletedAt, UpdatedAt, ErrorMessage, RetryCount
 		      FROM Jobs 
 		      WHERE TenantId = @tenantId 
 		      ORDER BY CreatedAt DESC`,
@@ -79,7 +79,7 @@ func (c *Client) ListJobs(ctx context.Context, tenantID string) ([]*Job, error) 
 // ListJobsByStatus returns jobs for a tenant filtered by status
 func (c *Client) ListJobsByStatus(ctx context.Context, tenantID, status string) ([]*Job, error) {
 	stmt := spanner.Statement{
-		SQL: `SELECT TenantId, JobId, Status, ImageUri, Commands, CreatedAt, UpdatedAt, CompletedAt, ErrorMessage 
+		SQL: `SELECT TenantId, JobId, Status, ImageUri, Commands, CreatedAt, ScheduledAt, StartedAt, CompletedAt, UpdatedAt, ErrorMessage, RetryCount
 		      FROM Jobs@{FORCE_INDEX=JobsByStatus}
 		      WHERE TenantId = @tenantId AND Status = @status 
 		      ORDER BY CreatedAt DESC`,
@@ -152,6 +152,51 @@ func (c *Client) FailJob(ctx context.Context, tenantID, jobID, errorMessage stri
 	})
 	if err != nil {
 		return fmt.Errorf("failed to fail job: %w", err)
+	}
+	return nil
+}
+
+// ScheduleJob marks a job as SCHEDULED with a scheduled timestamp
+func (c *Client) ScheduleJob(ctx context.Context, tenantID, jobID string) error {
+	now := time.Now()
+	_, err := c.client.Apply(ctx, []*spanner.Mutation{
+		spanner.Update("Jobs",
+			[]string{"TenantId", "JobId", "Status", "ScheduledAt", "UpdatedAt"},
+			[]interface{}{tenantID, jobID, JobStatusScheduled, now, spanner.CommitTimestamp},
+		),
+	})
+	if err != nil {
+		return fmt.Errorf("failed to schedule job: %w", err)
+	}
+	return nil
+}
+
+// StartJob marks a job as RUNNING with a started timestamp
+func (c *Client) StartJob(ctx context.Context, tenantID, jobID string) error {
+	now := time.Now()
+	_, err := c.client.Apply(ctx, []*spanner.Mutation{
+		spanner.Update("Jobs",
+			[]string{"TenantId", "JobId", "Status", "StartedAt", "UpdatedAt"},
+			[]interface{}{tenantID, jobID, JobStatusRunning, now, spanner.CommitTimestamp},
+		),
+	})
+	if err != nil {
+		return fmt.Errorf("failed to start job: %w", err)
+	}
+	return nil
+}
+
+// CancelJob marks a job as CANCELLED
+func (c *Client) CancelJob(ctx context.Context, tenantID, jobID string) error {
+	now := time.Now()
+	_, err := c.client.Apply(ctx, []*spanner.Mutation{
+		spanner.Update("Jobs",
+			[]string{"TenantId", "JobId", "Status", "CompletedAt", "UpdatedAt"},
+			[]interface{}{tenantID, jobID, JobStatusCancelled, now, spanner.CommitTimestamp},
+		),
+	})
+	if err != nil {
+		return fmt.Errorf("failed to cancel job: %w", err)
 	}
 	return nil
 }
