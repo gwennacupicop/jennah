@@ -5,24 +5,22 @@ import (
 	"errors"
 	"fmt"
 	"log"
+	"strings"
 	"time"
 
-	batch "cloud.google.com/go/batch/apiv1"
-	"cloud.google.com/go/batch/apiv1/batchpb"
 	"connectrpc.com/connect"
 	"github.com/google/uuid"
 
 	jennahv1 "github.com/alphauslabs/jennah/gen/proto"
 	"github.com/alphauslabs/jennah/gen/proto/jennahv1connect"
+	"github.com/alphauslabs/jennah/internal/batch"
 	"github.com/alphauslabs/jennah/internal/database"
 )
 
 type WorkerServer struct {
 	jennahv1connect.UnimplementedDeploymentServiceHandler
-	dbClient    *database.Client
-	batchClient *batch.Client
-	projectId   string
-	region      string
+	dbClient      *database.Client
+	batchProvider batch.Provider
 }
 
 func (s *WorkerServer) SubmitJob(
@@ -46,18 +44,11 @@ func (s *WorkerServer) SubmitJob(
 	internalJobID := uuid.New().String()
 	log.Printf("Generated internal job ID: %s", internalJobID)
 
-	// Generate GCP Batch-compliant job ID: lowercase, starts with letter, no underscores
-	batchJobID := "jennah-" + internalJobID[:8]
-	log.Printf("Generated GCP Batch job ID: %s", batchJobID)
+	// Generate cloud provider-compatible job ID (lowercase, starts with letter, no underscores)
+	providerJobID := generateProviderJobID(internalJobID)
+	log.Printf("Generated provider job ID: %s", providerJobID)
 
-	// Construct full GCP Batch resource name
-	gcpBatchJobName := fmt.Sprintf(
-		"projects/%s/locations/%s/jobs/%s",
-		s.projectId, s.region, batchJobID,
-	)
-	log.Printf("Full GCP Batch resource name: %s", gcpBatchJobName)
-
-	// Insert job record with both identifiers
+	// Insert job record with PENDING status
 	err := s.dbClient.InsertJob(ctx, tenantId, internalJobID, req.Msg.ImageUri, []string{})
 	if err != nil {
 		log.Printf("Error inserting job to database: %v", err)
@@ -68,38 +59,62 @@ func (s *WorkerServer) SubmitJob(
 	}
 	log.Printf("Job %s saved to database with PENDING status", internalJobID)
 
-	// Create GCP Batch job using compliant ID
-	batchJob, err := s.createGCPBatchJob(ctx, batchJobID, req.Msg.ImageUri, req.Msg.EnvVars)
+	// Submit job to cloud batch provider
+	jobConfig := batch.JobConfig{
+		JobID:    providerJobID,
+		ImageURI: req.Msg.ImageUri,
+		EnvVars:  req.Msg.EnvVars,
+		Resources: &batch.ResourceRequirements{
+			CPUMillis: 2000, // 2 vCPUs
+			MemoryMiB: 4096, // 4 GB RAM
+		},
+	}
+
+	jobResult, err := s.batchProvider.SubmitJob(ctx, jobConfig)
 	if err != nil {
-		log.Printf("Error creating GCP Batch job: %v", err)
+		log.Printf("Error submitting job to batch provider: %v", err)
 		failErr := s.dbClient.FailJob(ctx, tenantId, internalJobID, err.Error())
 		if failErr != nil {
 			log.Printf("Error updating job status to FAILED: %v", failErr)
 		}
 		return nil, connect.NewError(
 			connect.CodeInternal,
-			fmt.Errorf("failed to create GCP Batch job: %w", err),
+			fmt.Errorf("failed to submit batch job: %w", err),
 		)
 	}
-	log.Printf("GCP Batch job created: %s", batchJob.Name)
+	log.Printf("Batch job created: %s", jobResult.CloudResourcePath)
 
-	err = s.dbClient.UpdateJobStatus(ctx, tenantId, internalJobID, database.JobStatusRunning)
+	// Update job status based on provider's initial status
+	statusToSet := string(jobResult.InitialStatus)
+	if statusToSet == "" || statusToSet == string(batch.JobStatusUnknown) {
+		statusToSet = database.JobStatusRunning
+	}
+
+	err = s.dbClient.UpdateJobStatus(ctx, tenantId, internalJobID, statusToSet)
 	if err != nil {
-		log.Printf("Error updating job status to RUNNING: %v", err)
+		log.Printf("Error updating job status to %s: %v", statusToSet, err)
 		return nil, connect.NewError(
 			connect.CodeInternal,
 			fmt.Errorf("failed to update job status: %w", err),
 		)
 	}
-	log.Printf("Job %s status updated to RUNNING", internalJobID)
+	log.Printf("Job %s status updated to %s", internalJobID, statusToSet)
 
 	response := connect.NewResponse(&jennahv1.SubmitJobResponse{
 		JobId:  internalJobID, // Return internal UUID to client
-		Status: database.JobStatusRunning,
+		Status: statusToSet,
 	})
 
 	log.Printf("Successfully submitted job %s for tenant %s", internalJobID, tenantId)
 	return response, nil
+}
+
+// generateProviderJobID creates a provider-compatible job ID from UUID.
+// Most cloud providers require lowercase, starting with letter, no underscores.
+func generateProviderJobID(uuid string) string {
+	// Use "jennah-" prefix + first 8 chars of UUID (no hyphens)
+	cleanUUID := strings.ReplaceAll(uuid, "-", "")
+	return "jennah-" + strings.ToLower(cleanUUID[:8])
 }
 
 func (s *WorkerServer) ListJobs(
@@ -143,52 +158,3 @@ func (s *WorkerServer) ListJobs(
 	log.Printf("Successfully listed %d jobs for tenant %s", len(protoJobs), tenantId)
 	return response, nil
 }
-
-func (s *WorkerServer) createGCPBatchJob(
-	ctx context.Context,
-	jobId string,
-	imageURI string,
-	envVars map[string]string,
-) (*batchpb.Job, error) {
-	parent := fmt.Sprintf("projects/%s/locations/%s", s.projectId, s.region)
-
-	runnable := &batchpb.Runnable{
-		Executable: &batchpb.Runnable_Container_{
-			Container: &batchpb.Runnable_Container{
-				ImageUri: imageURI,
-			},
-		},
-	}
-
-	if len(envVars) > 0 {
-		runnable.Environment = &batchpb.Environment{
-			Variables: envVars,
-		}
-	}
-
-	job := &batchpb.Job{
-		TaskGroups: []*batchpb.TaskGroup{
-			{
-				TaskSpec: &batchpb.TaskSpec{
-					Runnables: []*batchpb.Runnable{runnable},
-				},
-				TaskCount: 1,
-			},
-		},
-	}
-
-	req := &batchpb.CreateJobRequest{
-		Parent: parent,
-		JobId:  jobId,
-		Job:    job,
-	}
-
-	return s.batchClient.CreateJob(ctx, req)
-}
-
-// func (s *WorkerServer) GetCurrentTenant(
-// 	ctx context.Context,
-// 	req *connect.Request[jennahv1.GetCurrentTenantRequest],
-// ) (*connect.Response[jennahv1.GetCurrentTenantResponse], error) {
-// 	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("GetCurrentTenant is not implemented in WorkerService"))
-// }

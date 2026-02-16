@@ -25,7 +25,7 @@ CREATE TABLE Jobs (
   RetryCount INT64 NOT NULL DEFAULT (0),
   MaxRetries INT64 NOT NULL DEFAULT (3),
   ErrorMessage STRING(MAX),
-  GcpBatchJobName STRING(1024),  -- Full GCP Batch resource name (projects/.../jobs/jennah-xxx)
+  CloudJobResourcePath STRING(1024),  -- Cloud provider-specific job resource identifier (GCP: projects/.../jobs/..., AWS: ARN, Azure: resource path)
 ) PRIMARY KEY (TenantId, JobId),
   INTERLEAVE IN PARENT Tenants ON DELETE CASCADE;
 

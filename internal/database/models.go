@@ -24,10 +24,10 @@ type Job struct {
 	ScheduledAt     *time.Time `spanner:"ScheduledAt"`
 	StartedAt       *time.Time `spanner:"StartedAt"`
 	CompletedAt     *time.Time `spanner:"CompletedAt"`
-	RetryCount      int64      `spanner:"RetryCount"`
-	MaxRetries      int64      `spanner:"MaxRetries"`
-	ErrorMessage    *string    `spanner:"ErrorMessage"`
-	GcpBatchJobName *string    `spanner:"GcpBatchJobName"`
+	RetryCount           int64      `spanner:"RetryCount"`
+	MaxRetries           int64      `spanner:"MaxRetries"`
+	ErrorMessage         *string    `spanner:"ErrorMessage"`
+	CloudJobResourcePath *string    `spanner:"CloudJobResourcePath"`
 }
 
 // JobStateTransition tracks state changes for audit trail

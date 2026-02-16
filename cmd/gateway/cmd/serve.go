@@ -22,9 +22,9 @@ import (
 var (
 	port            string
 	workerIPs       string
-	gcpProject      string
-	spannerInstance string
-	spannerDatabase string
+	dbProjectID     string
+	dbInstance      string
+	dbDatabase      string
 )
 
 var serveCmd = &cobra.Command{
@@ -37,22 +37,22 @@ var serveCmd = &cobra.Command{
 func init() {
 	serveCmd.Flags().StringVar(&port, "port", "8080", "Port to listen on")
 	serveCmd.Flags().StringVar(&workerIPs, "worker-ips", "10.146.0.26", "Comma-separated list of worker IPs")
-	serveCmd.Flags().StringVar(&gcpProject, "gcp-project", "labs-169405", "GCP Project ID")
-	serveCmd.Flags().StringVar(&spannerInstance, "spanner-instance", "alphaus-dev", "Cloud Spanner instance")
-	serveCmd.Flags().StringVar(&spannerDatabase, "spanner-database", "main", "Cloud Spanner database")
+	serveCmd.Flags().StringVar(&dbProjectID, "db-project-id", "labs-169405", "Database project ID (GCP project for Spanner)")
+	serveCmd.Flags().StringVar(&dbInstance, "db-instance", "alphaus-dev", "Database instance (Spanner instance name)")
+	serveCmd.Flags().StringVar(&dbDatabase, "db-database", "main", "Database name")
 }
 
 func runServe(cmd *cobra.Command, args []string) error {
 	log.Printf("Starting gateway")
 
 	ctx := context.Background()
-	dbClient, err := database.NewClient(ctx, gcpProject, spannerInstance, spannerDatabase)
+	dbClient, err := database.NewClient(ctx, dbProjectID, dbInstance, dbDatabase)
 	if err != nil {
 
 		return fmt.Errorf("failed to initialize database client: %w", err)
 	}
 	defer dbClient.Close()
-	log.Printf("Connected to Cloud Spanner: %s/%s/%s", gcpProject, spannerInstance, spannerDatabase)
+	log.Printf("Connected to database: %s/%s/%s", dbProjectID, dbInstance, dbDatabase)
 
 	workers := strings.Split(workerIPs, ",")
 	for i, ip := range workers {

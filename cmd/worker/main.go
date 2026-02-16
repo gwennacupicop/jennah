@@ -10,18 +10,11 @@ import (
 	"syscall"
 	"time"
 
-	batch "cloud.google.com/go/batch/apiv1"
 	"github.com/alphauslabs/jennah/gen/proto/jennahv1connect"
+	"github.com/alphauslabs/jennah/internal/batch"
+	_ "github.com/alphauslabs/jennah/internal/batch/gcp" // Register GCP provider
+	"github.com/alphauslabs/jennah/internal/config"
 	"github.com/alphauslabs/jennah/internal/database"
-)
-
-// Hardcoded config for now - will be moved to env vars or config file in the future
-const (
-	projectId       = "labs-169405"
-	region          = "asia-northeast1"
-	spannerInstance = "alphaus-dev"
-	spannerDb       = "main"
-	workerPort      = "8081"
 )
 
 func main() {
@@ -29,25 +22,34 @@ func main() {
 
 	ctx := context.Background()
 
-	dbClient, err := database.NewClient(ctx, projectId, spannerInstance, spannerDb)
+	// Load configuration from environment variables
+	cfg, err := config.LoadFromEnv()
+	if err != nil {
+		log.Fatalf("Failed to load configuration: %v", err)
+	}
+	log.Printf("Loaded configuration: provider=%s, region=%s", 
+		cfg.BatchProvider.Provider, cfg.BatchProvider.Region)
+
+	// Initialize database client
+	dbClient, err := database.NewClient(ctx, cfg.Database.ProjectID, cfg.Database.Instance, cfg.Database.Database)
 	if err != nil {
 		log.Fatalf("Failed to create database client: %v", err)
 	}
 	defer dbClient.Close()
-	log.Printf("Connected to Spanner: %s/%s/%s", projectId, spannerInstance, spannerDb)
+	log.Printf("Connected to database: %s/%s/%s", 
+		cfg.Database.ProjectID, cfg.Database.Instance, cfg.Database.Database)
 
-	batchClient, err := batch.NewClient(ctx)
+	// Initialize batch provider
+	batchProvider, err := batch.NewProvider(ctx, cfg.BatchProvider)
 	if err != nil {
-		log.Fatalf("Failed to create GCP Batch client: %v", err)
+		log.Fatalf("Failed to create batch provider: %v", err)
 	}
-	defer batchClient.Close()
-	log.Printf("Connected to GCP Batch API in region: %s", region)
+	log.Printf("Initialized %s batch provider in region: %s", 
+		cfg.BatchProvider.Provider, cfg.BatchProvider.Region)
 
 	workerServer := &WorkerServer{
-		dbClient:    dbClient,
-		batchClient: batchClient,
-		projectId:   projectId,
-		region:      region,
+		dbClient:      dbClient,
+		batchProvider: batchProvider,
 	}
 
 	mux := http.NewServeMux()
@@ -61,7 +63,7 @@ func main() {
 	})
 	log.Println("Health check endpoint: /health")
 
-	addr := fmt.Sprintf("0.0.0.0:%s", workerPort)
+	addr := fmt.Sprintf("0.0.0.0:%s", cfg.ServerPort)
 	server := &http.Server{
 		Addr:    addr,
 		Handler: mux,
@@ -76,7 +78,8 @@ func main() {
 		log.Printf("  • POST %sSubmitJob", path)
 		log.Printf("  • POST %sListJobs", path)
 		log.Printf("  • GET  /health")
-		log.Printf("Worker configured for project: %s, region: %s", projectId, region)
+		log.Printf("Worker configured for provider: %s, region: %s", 
+			cfg.BatchProvider.Provider, cfg.BatchProvider.Region)
 		log.Println("")
 
 		if err := server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
