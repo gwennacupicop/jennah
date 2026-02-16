@@ -28,6 +28,20 @@
    $ make gw-docker-push
 ```
 
+#### Deploy gateway to Cloud Run:
+```bash
+   $ make gw-deploy
+```
+
+#### Get gateway service URL:
+```bash
+   $  make gw-url
+```
+
+#### Test gateway health:
+```bash
+   $ make gw-test-health
+```
 #### Notes:
 Make sure to run the command below everytime you have made changes especially when adding/removing packages.
 ```bash
