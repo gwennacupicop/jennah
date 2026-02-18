@@ -21,17 +21,88 @@ const (
 	_ = protoimpl.EnforceVersion(protoimpl.MaxVersion - 20)
 )
 
+// ResourceOverride allows callers to specify custom compute resource values.
+// Any zero-value field is filled in from the resolved preset (or default).
+type ResourceOverride struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// cpu_millis is CPU in milli-cores (e.g. 1000 = 1 vCPU). 0 means use preset value.
+	CpuMillis int64 `protobuf:"varint,1,opt,name=cpu_millis,json=cpuMillis,proto3" json:"cpu_millis,omitempty"`
+	// memory_mib is memory in mebibytes (e.g. 4096 = 4 GiB). 0 means use preset value.
+	MemoryMib int64 `protobuf:"varint,2,opt,name=memory_mib,json=memoryMib,proto3" json:"memory_mib,omitempty"`
+	// max_run_duration_seconds is the job timeout in seconds. 0 means use preset value.
+	MaxRunDurationSeconds int64 `protobuf:"varint,3,opt,name=max_run_duration_seconds,json=maxRunDurationSeconds,proto3" json:"max_run_duration_seconds,omitempty"`
+	unknownFields         protoimpl.UnknownFields
+	sizeCache             protoimpl.SizeCache
+}
+
+func (x *ResourceOverride) Reset() {
+	*x = ResourceOverride{}
+	mi := &file_proto_jennah_proto_msgTypes[0]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ResourceOverride) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ResourceOverride) ProtoMessage() {}
+
+func (x *ResourceOverride) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_jennah_proto_msgTypes[0]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ResourceOverride.ProtoReflect.Descriptor instead.
+func (*ResourceOverride) Descriptor() ([]byte, []int) {
+	return file_proto_jennah_proto_rawDescGZIP(), []int{0}
+}
+
+func (x *ResourceOverride) GetCpuMillis() int64 {
+	if x != nil {
+		return x.CpuMillis
+	}
+	return 0
+}
+
+func (x *ResourceOverride) GetMemoryMib() int64 {
+	if x != nil {
+		return x.MemoryMib
+	}
+	return 0
+}
+
+func (x *ResourceOverride) GetMaxRunDurationSeconds() int64 {
+	if x != nil {
+		return x.MaxRunDurationSeconds
+	}
+	return 0
+}
+
 type SubmitJobRequest struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	ImageUri      string                 `protobuf:"bytes,2,opt,name=image_uri,json=imageUri,proto3" json:"image_uri,omitempty"`
-	EnvVars       map[string]string      `protobuf:"bytes,3,rep,name=env_vars,json=envVars,proto3" json:"env_vars,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"` // Example: { "DB_HOST": "10.0.0.1", "DEBUG": "true" }
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
+	state    protoimpl.MessageState `protogen:"open.v1"`
+	ImageUri string                 `protobuf:"bytes,2,opt,name=image_uri,json=imageUri,proto3" json:"image_uri,omitempty"`
+	EnvVars  map[string]string      `protobuf:"bytes,3,rep,name=env_vars,json=envVars,proto3" json:"env_vars,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"` // Example: { "DB_HOST": "10.0.0.1", "DEBUG": "true" }
+	// resource_profile selects a named preset: "small", "medium", "large", "xlarge".
+	// Defaults to "medium" when empty.
+	ResourceProfile string `protobuf:"bytes,4,opt,name=resource_profile,json=resourceProfile,proto3" json:"resource_profile,omitempty"`
+	// resource_override provides inline resource values that take precedence over the preset.
+	// Partial overrides are supported — zero fields fall back to the resolved preset.
+	ResourceOverride *ResourceOverride `protobuf:"bytes,5,opt,name=resource_override,json=resourceOverride,proto3" json:"resource_override,omitempty"`
+	unknownFields    protoimpl.UnknownFields
+	sizeCache        protoimpl.SizeCache
 }
 
 func (x *SubmitJobRequest) Reset() {
 	*x = SubmitJobRequest{}
-	mi := &file_proto_jennah_proto_msgTypes[0]
+	mi := &file_proto_jennah_proto_msgTypes[1]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -43,7 +114,7 @@ func (x *SubmitJobRequest) String() string {
 func (*SubmitJobRequest) ProtoMessage() {}
 
 func (x *SubmitJobRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_jennah_proto_msgTypes[0]
+	mi := &file_proto_jennah_proto_msgTypes[1]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -56,7 +127,7 @@ func (x *SubmitJobRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SubmitJobRequest.ProtoReflect.Descriptor instead.
 func (*SubmitJobRequest) Descriptor() ([]byte, []int) {
-	return file_proto_jennah_proto_rawDescGZIP(), []int{0}
+	return file_proto_jennah_proto_rawDescGZIP(), []int{1}
 }
 
 func (x *SubmitJobRequest) GetImageUri() string {
@@ -73,6 +144,20 @@ func (x *SubmitJobRequest) GetEnvVars() map[string]string {
 	return nil
 }
 
+func (x *SubmitJobRequest) GetResourceProfile() string {
+	if x != nil {
+		return x.ResourceProfile
+	}
+	return ""
+}
+
+func (x *SubmitJobRequest) GetResourceOverride() *ResourceOverride {
+	if x != nil {
+		return x.ResourceOverride
+	}
+	return nil
+}
+
 type SubmitJobResponse struct {
 	state          protoimpl.MessageState `protogen:"open.v1"`
 	JobId          string                 `protobuf:"bytes,1,opt,name=job_id,json=jobId,proto3" json:"job_id,omitempty"`
@@ -84,7 +169,7 @@ type SubmitJobResponse struct {
 
 func (x *SubmitJobResponse) Reset() {
 	*x = SubmitJobResponse{}
-	mi := &file_proto_jennah_proto_msgTypes[1]
+	mi := &file_proto_jennah_proto_msgTypes[2]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -96,7 +181,7 @@ func (x *SubmitJobResponse) String() string {
 func (*SubmitJobResponse) ProtoMessage() {}
 
 func (x *SubmitJobResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_jennah_proto_msgTypes[1]
+	mi := &file_proto_jennah_proto_msgTypes[2]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -109,7 +194,7 @@ func (x *SubmitJobResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SubmitJobResponse.ProtoReflect.Descriptor instead.
 func (*SubmitJobResponse) Descriptor() ([]byte, []int) {
-	return file_proto_jennah_proto_rawDescGZIP(), []int{1}
+	return file_proto_jennah_proto_rawDescGZIP(), []int{2}
 }
 
 func (x *SubmitJobResponse) GetJobId() string {
@@ -141,7 +226,7 @@ type ListJobsRequest struct {
 
 func (x *ListJobsRequest) Reset() {
 	*x = ListJobsRequest{}
-	mi := &file_proto_jennah_proto_msgTypes[2]
+	mi := &file_proto_jennah_proto_msgTypes[3]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -153,7 +238,7 @@ func (x *ListJobsRequest) String() string {
 func (*ListJobsRequest) ProtoMessage() {}
 
 func (x *ListJobsRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_jennah_proto_msgTypes[2]
+	mi := &file_proto_jennah_proto_msgTypes[3]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -166,7 +251,7 @@ func (x *ListJobsRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListJobsRequest.ProtoReflect.Descriptor instead.
 func (*ListJobsRequest) Descriptor() ([]byte, []int) {
-	return file_proto_jennah_proto_rawDescGZIP(), []int{2}
+	return file_proto_jennah_proto_rawDescGZIP(), []int{3}
 }
 
 type ListJobsResponse struct {
@@ -178,7 +263,7 @@ type ListJobsResponse struct {
 
 func (x *ListJobsResponse) Reset() {
 	*x = ListJobsResponse{}
-	mi := &file_proto_jennah_proto_msgTypes[3]
+	mi := &file_proto_jennah_proto_msgTypes[4]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -190,7 +275,7 @@ func (x *ListJobsResponse) String() string {
 func (*ListJobsResponse) ProtoMessage() {}
 
 func (x *ListJobsResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_jennah_proto_msgTypes[3]
+	mi := &file_proto_jennah_proto_msgTypes[4]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -203,7 +288,7 @@ func (x *ListJobsResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListJobsResponse.ProtoReflect.Descriptor instead.
 func (*ListJobsResponse) Descriptor() ([]byte, []int) {
-	return file_proto_jennah_proto_rawDescGZIP(), []int{3}
+	return file_proto_jennah_proto_rawDescGZIP(), []int{4}
 }
 
 func (x *ListJobsResponse) GetJobs() []*Job {
@@ -226,7 +311,7 @@ type Job struct {
 
 func (x *Job) Reset() {
 	*x = Job{}
-	mi := &file_proto_jennah_proto_msgTypes[4]
+	mi := &file_proto_jennah_proto_msgTypes[5]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -238,7 +323,7 @@ func (x *Job) String() string {
 func (*Job) ProtoMessage() {}
 
 func (x *Job) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_jennah_proto_msgTypes[4]
+	mi := &file_proto_jennah_proto_msgTypes[5]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -251,7 +336,7 @@ func (x *Job) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Job.ProtoReflect.Descriptor instead.
 func (*Job) Descriptor() ([]byte, []int) {
-	return file_proto_jennah_proto_rawDescGZIP(), []int{4}
+	return file_proto_jennah_proto_rawDescGZIP(), []int{5}
 }
 
 func (x *Job) GetJobId() string {
@@ -297,7 +382,7 @@ type GetCurrentTenantRequest struct {
 
 func (x *GetCurrentTenantRequest) Reset() {
 	*x = GetCurrentTenantRequest{}
-	mi := &file_proto_jennah_proto_msgTypes[5]
+	mi := &file_proto_jennah_proto_msgTypes[6]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -309,7 +394,7 @@ func (x *GetCurrentTenantRequest) String() string {
 func (*GetCurrentTenantRequest) ProtoMessage() {}
 
 func (x *GetCurrentTenantRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_jennah_proto_msgTypes[5]
+	mi := &file_proto_jennah_proto_msgTypes[6]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -322,7 +407,7 @@ func (x *GetCurrentTenantRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetCurrentTenantRequest.ProtoReflect.Descriptor instead.
 func (*GetCurrentTenantRequest) Descriptor() ([]byte, []int) {
-	return file_proto_jennah_proto_rawDescGZIP(), []int{5}
+	return file_proto_jennah_proto_rawDescGZIP(), []int{6}
 }
 
 type GetCurrentTenantResponse struct {
@@ -337,7 +422,7 @@ type GetCurrentTenantResponse struct {
 
 func (x *GetCurrentTenantResponse) Reset() {
 	*x = GetCurrentTenantResponse{}
-	mi := &file_proto_jennah_proto_msgTypes[6]
+	mi := &file_proto_jennah_proto_msgTypes[7]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -349,7 +434,7 @@ func (x *GetCurrentTenantResponse) String() string {
 func (*GetCurrentTenantResponse) ProtoMessage() {}
 
 func (x *GetCurrentTenantResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_jennah_proto_msgTypes[6]
+	mi := &file_proto_jennah_proto_msgTypes[7]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -362,7 +447,7 @@ func (x *GetCurrentTenantResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetCurrentTenantResponse.ProtoReflect.Descriptor instead.
 func (*GetCurrentTenantResponse) Descriptor() ([]byte, []int) {
-	return file_proto_jennah_proto_rawDescGZIP(), []int{6}
+	return file_proto_jennah_proto_rawDescGZIP(), []int{7}
 }
 
 func (x *GetCurrentTenantResponse) GetTenantId() string {
@@ -397,10 +482,18 @@ var File_proto_jennah_proto protoreflect.FileDescriptor
 
 const file_proto_jennah_proto_rawDesc = "" +
 	"\n" +
-	"\x12proto/jennah.proto\x12\tjennah.v1\"\xb0\x01\n" +
+	"\x12proto/jennah.proto\x12\tjennah.v1\"\x89\x01\n" +
+	"\x10ResourceOverride\x12\x1d\n" +
+	"\n" +
+	"cpu_millis\x18\x01 \x01(\x03R\tcpuMillis\x12\x1d\n" +
+	"\n" +
+	"memory_mib\x18\x02 \x01(\x03R\tmemoryMib\x127\n" +
+	"\x18max_run_duration_seconds\x18\x03 \x01(\x03R\x15maxRunDurationSeconds\"\xa5\x02\n" +
 	"\x10SubmitJobRequest\x12\x1b\n" +
 	"\timage_uri\x18\x02 \x01(\tR\bimageUri\x12C\n" +
-	"\benv_vars\x18\x03 \x03(\v2(.jennah.v1.SubmitJobRequest.EnvVarsEntryR\aenvVars\x1a:\n" +
+	"\benv_vars\x18\x03 \x03(\v2(.jennah.v1.SubmitJobRequest.EnvVarsEntryR\aenvVars\x12)\n" +
+	"\x10resource_profile\x18\x04 \x01(\tR\x0fresourceProfile\x12H\n" +
+	"\x11resource_override\x18\x05 \x01(\v2\x1b.jennah.v1.ResourceOverrideR\x10resourceOverride\x1a:\n" +
 	"\fEnvVarsEntry\x12\x10\n" +
 	"\x03key\x18\x01 \x01(\tR\x03key\x12\x14\n" +
 	"\x05value\x18\x02 \x01(\tR\x05value:\x028\x01\"k\n" +
@@ -443,31 +536,33 @@ func file_proto_jennah_proto_rawDescGZIP() []byte {
 	return file_proto_jennah_proto_rawDescData
 }
 
-var file_proto_jennah_proto_msgTypes = make([]protoimpl.MessageInfo, 8)
+var file_proto_jennah_proto_msgTypes = make([]protoimpl.MessageInfo, 9)
 var file_proto_jennah_proto_goTypes = []any{
-	(*SubmitJobRequest)(nil),         // 0: jennah.v1.SubmitJobRequest
-	(*SubmitJobResponse)(nil),        // 1: jennah.v1.SubmitJobResponse
-	(*ListJobsRequest)(nil),          // 2: jennah.v1.ListJobsRequest
-	(*ListJobsResponse)(nil),         // 3: jennah.v1.ListJobsResponse
-	(*Job)(nil),                      // 4: jennah.v1.Job
-	(*GetCurrentTenantRequest)(nil),  // 5: jennah.v1.GetCurrentTenantRequest
-	(*GetCurrentTenantResponse)(nil), // 6: jennah.v1.GetCurrentTenantResponse
-	nil,                              // 7: jennah.v1.SubmitJobRequest.EnvVarsEntry
+	(*ResourceOverride)(nil),         // 0: jennah.v1.ResourceOverride
+	(*SubmitJobRequest)(nil),         // 1: jennah.v1.SubmitJobRequest
+	(*SubmitJobResponse)(nil),        // 2: jennah.v1.SubmitJobResponse
+	(*ListJobsRequest)(nil),          // 3: jennah.v1.ListJobsRequest
+	(*ListJobsResponse)(nil),         // 4: jennah.v1.ListJobsResponse
+	(*Job)(nil),                      // 5: jennah.v1.Job
+	(*GetCurrentTenantRequest)(nil),  // 6: jennah.v1.GetCurrentTenantRequest
+	(*GetCurrentTenantResponse)(nil), // 7: jennah.v1.GetCurrentTenantResponse
+	nil,                              // 8: jennah.v1.SubmitJobRequest.EnvVarsEntry
 }
 var file_proto_jennah_proto_depIdxs = []int32{
-	7, // 0: jennah.v1.SubmitJobRequest.env_vars:type_name -> jennah.v1.SubmitJobRequest.EnvVarsEntry
-	4, // 1: jennah.v1.ListJobsResponse.jobs:type_name -> jennah.v1.Job
-	0, // 2: jennah.v1.DeploymentService.SubmitJob:input_type -> jennah.v1.SubmitJobRequest
-	2, // 3: jennah.v1.DeploymentService.ListJobs:input_type -> jennah.v1.ListJobsRequest
-	5, // 4: jennah.v1.DeploymentService.GetCurrentTenant:input_type -> jennah.v1.GetCurrentTenantRequest
-	1, // 5: jennah.v1.DeploymentService.SubmitJob:output_type -> jennah.v1.SubmitJobResponse
-	3, // 6: jennah.v1.DeploymentService.ListJobs:output_type -> jennah.v1.ListJobsResponse
-	6, // 7: jennah.v1.DeploymentService.GetCurrentTenant:output_type -> jennah.v1.GetCurrentTenantResponse
-	5, // [5:8] is the sub-list for method output_type
-	2, // [2:5] is the sub-list for method input_type
-	2, // [2:2] is the sub-list for extension type_name
-	2, // [2:2] is the sub-list for extension extendee
-	0, // [0:2] is the sub-list for field type_name
+	8, // 0: jennah.v1.SubmitJobRequest.env_vars:type_name -> jennah.v1.SubmitJobRequest.EnvVarsEntry
+	0, // 1: jennah.v1.SubmitJobRequest.resource_override:type_name -> jennah.v1.ResourceOverride
+	5, // 2: jennah.v1.ListJobsResponse.jobs:type_name -> jennah.v1.Job
+	1, // 3: jennah.v1.DeploymentService.SubmitJob:input_type -> jennah.v1.SubmitJobRequest
+	3, // 4: jennah.v1.DeploymentService.ListJobs:input_type -> jennah.v1.ListJobsRequest
+	6, // 5: jennah.v1.DeploymentService.GetCurrentTenant:input_type -> jennah.v1.GetCurrentTenantRequest
+	2, // 6: jennah.v1.DeploymentService.SubmitJob:output_type -> jennah.v1.SubmitJobResponse
+	4, // 7: jennah.v1.DeploymentService.ListJobs:output_type -> jennah.v1.ListJobsResponse
+	7, // 8: jennah.v1.DeploymentService.GetCurrentTenant:output_type -> jennah.v1.GetCurrentTenantResponse
+	6, // [6:9] is the sub-list for method output_type
+	3, // [3:6] is the sub-list for method input_type
+	3, // [3:3] is the sub-list for extension type_name
+	3, // [3:3] is the sub-list for extension extendee
+	0, // [0:3] is the sub-list for field type_name
 }
 
 func init() { file_proto_jennah_proto_init() }
@@ -481,7 +576,7 @@ func file_proto_jennah_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_proto_jennah_proto_rawDesc), len(file_proto_jennah_proto_rawDesc)),
 			NumEnums:      0,
-			NumMessages:   8,
+			NumMessages:   9,
 			NumExtensions: 0,
 			NumServices:   1,
 		},

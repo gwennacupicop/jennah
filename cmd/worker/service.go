@@ -61,13 +61,22 @@ func (s *WorkerServer) SubmitJob(
 	}
 	log.Printf("Job %s saved to database with PENDING status", internalJobID)
 
-	// Submit job to cloud batch provider
-	// TODO: Allow clients to specify resource_profile in SubmitJobRequest
+	// Submit job to cloud batch provider.
+	// Resolve resource requirements: named preset merged with any per-field override.
+	var resourceOverride *config.ResourceOverride
+	if o := req.Msg.ResourceOverride; o != nil {
+		resourceOverride = &config.ResourceOverride{
+			CPUMillis:             o.CpuMillis,
+			MemoryMiB:             o.MemoryMib,
+			MaxRunDurationSeconds: o.MaxRunDurationSeconds,
+		}
+	}
+
 	batchJobConfig := batch.JobConfig{
 		JobID:     providerJobID,
 		ImageURI:  req.Msg.ImageUri,
 		EnvVars:   req.Msg.EnvVars,
-		Resources: s.jobConfig.GetResourceRequirements(""), // Use default profile
+		Resources: s.jobConfig.ResolveResources(req.Msg.ResourceProfile, resourceOverride),
 	}
 
 	jobResult, err := s.batchProvider.SubmitJob(ctx, batchJobConfig)

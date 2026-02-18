@@ -64,8 +64,8 @@ Creates a new batch job that runs a containerized workload.
 
 ```go
 func (c *Client) CreateJob(
-    ctx context.Context, 
-    req *batchpb.CreateJobRequest, 
+    ctx context.Context,
+    req *batchpb.CreateJobRequest,
     opts ...gax.CallOption,
 ) (*batchpb.Job, error)
 ```
@@ -173,15 +173,15 @@ func createGCPBatchJob(
 
 #### Job States
 
-| State | Description |
-|-------|-------------|
-| `STATE_UNSPECIFIED` | Unknown state |
-| `QUEUED` | Job accepted, awaiting VM allocation |
-| `SCHEDULED` | Job scheduled, VM is starting |
-| `RUNNING` | Job is actively running |
-| `SUCCEEDED` | Job completed successfully (all tasks exit code 0) |
-| `FAILED` | Job failed (task exit code != 0 or system error) |
-| `DELETION_IN_PROGRESS` | Job being deleted |
+| State                  | Description                                        |
+| ---------------------- | -------------------------------------------------- |
+| `STATE_UNSPECIFIED`    | Unknown state                                      |
+| `QUEUED`               | Job accepted, awaiting VM allocation               |
+| `SCHEDULED`            | Job scheduled, VM is starting                      |
+| `RUNNING`              | Job is actively running                            |
+| `SUCCEEDED`            | Job completed successfully (all tasks exit code 0) |
+| `FAILED`               | Job failed (task exit code != 0 or system error)   |
+| `DELETION_IN_PROGRESS` | Job being deleted                                  |
 
 ### 2. GetJob - Query Job Status
 
@@ -224,7 +224,7 @@ func listJobs(
     region string,
 ) ([]*batchpb.Job, error) {
     parent := fmt.Sprintf("projects/%s/locations/%s", projectID, region)
-    
+
     req := &batchpb.ListJobsRequest{
         Parent: parent,
         // Optional filters
@@ -232,7 +232,7 @@ func listJobs(
     }
 
     it := client.ListJobs(ctx, req)
-    
+
     var jobs []*batchpb.Job
     for {
         job, err := it.Next()
@@ -348,7 +348,7 @@ job := &batchpb.Job{
                         MachineType: "n1-standard-4",     // 4 vCPU, 15 GB RAM
                         // Or use custom machine type
                         // MachineType: "custom-4-16384", // 4 vCPU, 16 GB RAM
-                        
+
                         // Spot VMs for cost savings
                         ProvisioningModel: batchpb.AllocationPolicy_SPOT,
                     },
@@ -463,27 +463,27 @@ func handleBatchError(err error) {
     case codes.InvalidArgument:
         // Job ID doesn't match pattern, missing required fields
         log.Printf("Invalid request: %s", st.Message())
-        
+
     case codes.PermissionDenied:
         // Insufficient permissions
         log.Printf("Permission denied. Check IAM roles")
-        
+
     case codes.ResourceExhausted:
         // Quota exceeded
         log.Printf("Quota exceeded. Request increase or retry later")
-        
+
     case codes.AlreadyExists:
         // Job ID already exists
         log.Printf("Job already exists. Use a different JobId")
-        
+
     case codes.NotFound:
         // Job doesn't exist
         log.Printf("Job not found: %s", st.Message())
-        
+
     case codes.DeadlineExceeded:
         // Request timeout
         log.Printf("Request timed out. Retry with longer deadline")
-        
+
     default:
         log.Printf("Batch API error [%s]: %s", st.Code(), st.Message())
     }
@@ -557,16 +557,16 @@ func (s *WorkerServer) SubmitJob(
     // 1. Generate IDs
     internalJobID := uuid.New().String()
     batchJobID := "jennah-" + internalJobID[:8] // GCP-compliant ID
-    
+
     // 2. Create GCP Batch job
     batchJob, err := s.createGCPBatchJob(ctx, batchJobID, imageUri, envVars)
     if err != nil {
         return "", "", fmt.Errorf("failed to create GCP Batch job: %w", err)
     }
-    
+
     // 3. Extract GCP resource name
     gcpBatchJobName := batchJob.Name // projects/.../locations/.../jobs/jennah-xxx
-    
+
     // 4. Return both IDs for database storage
     return internalJobID, gcpBatchJobName, nil
 }
@@ -656,6 +656,7 @@ projects/{project}/locations/{location}/jobs/{job}
 ```
 
 **Examples**:
+
 ```
 projects/labs-169405/locations/us-central1/jobs/jennah-306b2e4f
 ```
@@ -677,6 +678,7 @@ roles/iam.serviceAccountUser     # Use custom service account for jobs
 ```
 
 Grant permissions:
+
 ```bash
 gcloud projects add-iam-policy-binding PROJECT_ID \
   --member="serviceAccount:SERVICE_ACCOUNT_EMAIL" \
@@ -716,7 +718,7 @@ func getJobLogs(ctx context.Context, projectID, jobID string) ([]string, error) 
 
     filter := fmt.Sprintf(`resource.type="generic_task" AND resource.labels.job_id="%s"`, jobID)
     iter := client.Logger("batch").Entries(ctx, logging.Filter(filter))
-    
+
     var logs []string
     for {
         entry, err := iter.Next()
@@ -728,7 +730,7 @@ func getJobLogs(ctx context.Context, projectID, jobID string) ([]string, error) 
         }
         logs = append(logs, entry.Payload.(string))
     }
-    
+
     return logs, nil
 }
 ```
@@ -736,6 +738,7 @@ func getJobLogs(ctx context.Context, projectID, jobID string) ([]string, error) 
 ## Best Practices
 
 ### 1. Job ID Generation
+
 ```go
 // ✅ CORRECT: DNS-compliant
 jobID := "jennah-" + uuid.New().String()[:8]  // jennah-306b2e4f
@@ -745,6 +748,7 @@ jobID := uuid.New().String()  // 306b2e4f-7fdd-4449-bb72-1565acc7edef
 ```
 
 ### 2. Error Handling
+
 ```go
 // Always check and log errors with context
 job, err := client.CreateJob(ctx, req)
@@ -755,6 +759,7 @@ if err != nil {
 ```
 
 ### 3. Resource Cleanup
+
 ```go
 // Always close client
 defer client.Close()
@@ -766,6 +771,7 @@ if err := client.DeleteJob(ctx, &batchpb.DeleteJobRequest{Name: jobName}); err !
 ```
 
 ### 4. Use Context Timeouts
+
 ```go
 // Set reasonable timeouts
 ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
@@ -775,6 +781,7 @@ job, err := client.CreateJob(ctx, req)
 ```
 
 ### 5. Implement Exponential Backoff
+
 ```go
 import "github.com/googleapis/gax-go/v2"
 
@@ -798,13 +805,17 @@ job, err := client.CreateJob(ctx, req, opts...)
 ## Troubleshooting
 
 ### Issue: "Job Id field is invalid"
+
 **Solution**: Use DNS-compliant job IDs (lowercase, start with letter, no underscores)
+
 ```go
 jobID := "jennah-" + strings.ToLower(uuid.New().String()[:8])
 ```
 
 ### Issue: "Permission denied"
+
 **Solution**: Grant required IAM roles
+
 ```bash
 gcloud projects add-iam-policy-binding PROJECT_ID \
   --member="serviceAccount:SA_EMAIL" \
@@ -812,10 +823,13 @@ gcloud projects add-iam-policy-binding PROJECT_ID \
 ```
 
 ### Issue: "Quota exceeded"
+
 **Solution**: Request quota increase or use exponential backoff retry
 
 ### Issue: Job stuck in QUEUED
+
 **Possible causes**:
+
 - No available VMs in the region
 - Quota limits reached
 - Invalid machine type specification
@@ -834,13 +848,13 @@ gcloud projects add-iam-policy-binding PROJECT_ID \
 
 ### Essential Methods
 
-| Method | Purpose | Returns |
-|--------|---------|---------|
-| `CreateJob(ctx, req)` | Submit new job | `*Job`, `error` |
-| `GetJob(ctx, req)` | Get job status | `*Job`, `error` |
-| `ListJobs(ctx, req)` | List jobs | `*JobIterator` |
-| `DeleteJob(ctx, req)` | Delete job | `*DeleteJobOperation`, `error` |
-| `CancelJob(ctx, req)` | Cancel job | `*CancelJobOperation`, `error` |
+| Method                | Purpose        | Returns                        |
+| --------------------- | -------------- | ------------------------------ |
+| `CreateJob(ctx, req)` | Submit new job | `*Job`, `error`                |
+| `GetJob(ctx, req)`    | Get job status | `*Job`, `error`                |
+| `ListJobs(ctx, req)`  | List jobs      | `*JobIterator`                 |
+| `DeleteJob(ctx, req)` | Delete job     | `*DeleteJobOperation`, `error` |
+| `CancelJob(ctx, req)` | Cancel job     | `*CancelJobOperation`, `error` |
 
 ### Job Lifecycle
 
@@ -851,11 +865,11 @@ QUEUED → SCHEDULED → RUNNING → SUCCEEDED
 
 ### Machine Types Reference
 
-| Type | vCPUs | Memory | Use Case |
-|------|-------|--------|----------|
-| `e2-micro` | 2 | 1 GB | Minimal workloads |
-| `e2-standard-2` | 2 | 8 GB | Light processing |
-| `e2-standard-4` | 4 | 16 GB | Medium workloads |
-| `n1-standard-4` | 4 | 15 GB | General purpose |
-| `c2-standard-8` | 8 | 32 GB | CPU-intensive |
-| `custom-4-16384` | 4 | 16 GB | Custom config |
+| Type             | vCPUs | Memory | Use Case          |
+| ---------------- | ----- | ------ | ----------------- |
+| `e2-micro`       | 2     | 1 GB   | Minimal workloads |
+| `e2-standard-2`  | 2     | 8 GB   | Light processing  |
+| `e2-standard-4`  | 4     | 16 GB  | Medium workloads  |
+| `n1-standard-4`  | 4     | 15 GB  | General purpose   |
+| `c2-standard-8`  | 8     | 32 GB  | CPU-intensive     |
+| `custom-4-16384` | 4     | 16 GB  | Custom config     |

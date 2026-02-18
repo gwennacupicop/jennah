@@ -81,8 +81,10 @@ func (s *GatewayService) SubmitJob(
 	}
 
 	workerReq := connect.NewRequest(&jennahv1.SubmitJobRequest{
-		ImageUri: req.Msg.ImageUri,
-		EnvVars:  req.Msg.EnvVars,
+		ImageUri:         req.Msg.ImageUri,
+		EnvVars:          req.Msg.EnvVars,
+		ResourceProfile:  req.Msg.ResourceProfile,
+		ResourceOverride: req.Msg.ResourceOverride,
 	})
 	workerReq.Header().Set("X-Tenant-Id", tenantId)
 

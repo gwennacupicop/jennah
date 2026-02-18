@@ -57,3 +57,37 @@ func (c *JobConfigFile) GetResourceRequirements(profileName string) *batch.Resou
 		MaxRunDurationSeconds: profile.MaxRunDurationSeconds,
 	}
 }
+
+// ResourceOverride holds optional per-field overrides for compute resources.
+// A zero value for any field means "use the preset value instead".
+type ResourceOverride struct {
+	CPUMillis             int64
+	MemoryMiB             int64
+	MaxRunDurationSeconds int64
+}
+
+// ResolveResources returns the effective resource requirements by merging a
+// named preset with an optional per-field override.
+//
+// Resolution order (highest to lowest priority):
+//  1. Non-zero fields in override
+//  2. Named preset (or default if profileName is empty or unknown)
+func (c *JobConfigFile) ResolveResources(profileName string, override *ResourceOverride) *batch.ResourceRequirements {
+	base := c.GetResourceRequirements(profileName)
+
+	if override == nil {
+		return base
+	}
+
+	if override.CPUMillis != 0 {
+		base.CPUMillis = override.CPUMillis
+	}
+	if override.MemoryMiB != 0 {
+		base.MemoryMiB = override.MemoryMiB
+	}
+	if override.MaxRunDurationSeconds != 0 {
+		base.MaxRunDurationSeconds = override.MaxRunDurationSeconds
+	}
+
+	return base
+}

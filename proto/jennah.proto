@@ -17,9 +17,26 @@ service DeploymentService {
 }
 
 
+// ResourceOverride allows callers to specify custom compute resource values.
+// Any zero-value field is filled in from the resolved preset (or default).
+message ResourceOverride {
+  // cpu_millis is CPU in milli-cores (e.g. 1000 = 1 vCPU). 0 means use preset value.
+  int64 cpu_millis = 1;
+  // memory_mib is memory in mebibytes (e.g. 4096 = 4 GiB). 0 means use preset value.
+  int64 memory_mib = 2;
+  // max_run_duration_seconds is the job timeout in seconds. 0 means use preset value.
+  int64 max_run_duration_seconds = 3;
+}
+
 message SubmitJobRequest {
   string image_uri = 2;
   map<string, string> env_vars = 3; // Example: { "DB_HOST": "10.0.0.1", "DEBUG": "true" }
+  // resource_profile selects a named preset: "small", "medium", "large", "xlarge".
+  // Defaults to "medium" when empty.
+  string resource_profile = 4;
+  // resource_override provides inline resource values that take precedence over the preset.
+  // Partial overrides are supported — zero fields fall back to the resolved preset.
+  ResourceOverride resource_override = 5;
 }
 
 message SubmitJobResponse {
