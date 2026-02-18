@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"log"
+	"time"
 
 	"connectrpc.com/connect"
 
@@ -67,12 +68,16 @@ func (s *GatewayService) SubmitJob(
 		return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("imageUri is required"))
 	}
 
-	workerIP := s.router.GetWorkerIP(tenantId)
+	//workerIP := s.router.GetWorkerIP(tenantId)
+
+	//create unique routing key for each job submission to ensure better load distribution across workers
+	routingKey := fmt.Sprintf("%s-%d", tenantId, time.Now().UnixNano())
+	workerIP := s.router.GetWorkerIP(routingKey)
 	if workerIP == "" {
-		log.Printf("No worker found for tenantId: %s", tenantId)
-		return nil, connect.NewError(connect.CodeInternal, errors.New("no worker found for tenantId"))
+		log.Printf("No worker found for routingKey: %s", routingKey)
+		return nil, connect.NewError(connect.CodeInternal, errors.New("no worker found for routingKey"))
 	}
-	log.Printf("Selected worker: %s for tenant: %s", workerIP, tenantId)
+	log.Printf("Selected worker: %s for tenant (routing key: %s)", workerIP, routingKey)
 
 	workerClient, exists := s.workerClients[workerIP]
 	if !exists {
@@ -120,30 +125,28 @@ func (s *GatewayService) ListJobs(
 	}
 	log.Printf("List jobs request from user %s (tenantId=%s)", oauthUser.Email, tenantId)
 
-	workerIP := s.router.GetWorkerIP(tenantId)
-	if workerIP == "" {
-		log.Printf("No worker found for tenantId: %s", tenantId)
-		return nil, connect.NewError(connect.CodeInternal, errors.New("no worker found"))
-	}
-	log.Printf("Selected worker: %s for tenant: %s", workerIP, tenantId)
-
-	workerClient, exists := s.workerClients[workerIP]
-	if !exists {
-		log.Printf("No worker client found for IP: %s", workerIP)
-		return nil, connect.NewError(connect.CodeInternal, errors.New("no worker client found"))
-	}
-
-	workerReq := connect.NewRequest(&jennahv1.ListJobsRequest{})
-	workerReq.Header().Set("X-Tenant-Id", tenantId)
-
-	response, err := workerClient.ListJobs(ctx, workerReq)
+	jobs, err := s.dbClient.ListJobs(ctx, tenantId)
 	if err != nil {
-		log.Printf("ERROR: Worker %s failed: %v", workerIP, err)
-		return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("worker failed: %w", err))
+		log.Printf("Failed to list jobs from database: %v", err)
+		return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("failed to list jobs: %w", err))
+	}
+	log.Printf("Retrieved %d jobs for tenant %s from database", len(jobs), tenantId)
+
+	// Convert database jobs to API response format
+	protoJobs := make([]*jennahv1.Job, 0, len(jobs))
+	for _, job := range jobs {
+		protoJob := &jennahv1.Job{
+			JobId:     job.JobId,
+			TenantId:  job.TenantId,
+			ImageUri:  job.ImageUri,
+			Status:    job.Status,
+			CreatedAt: job.CreatedAt.Format(time.RFC3339),
+		}
+		protoJobs = append(protoJobs, protoJob)
 	}
 
-	log.Printf("Successfully listed %d jobs for tenant %s from worker %s",
-		len(response.Msg.Jobs), tenantId, workerIP)
-
-	return response, nil
+	log.Printf("Successfully listed %d jobs for tenant %s", len(protoJobs), tenantId)
+	return connect.NewResponse(&jennahv1.ListJobsResponse{
+		Jobs: protoJobs,
+	}), nil
 }

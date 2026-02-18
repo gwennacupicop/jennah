@@ -41,9 +41,11 @@ func NewRouter(members []string) *Router {
 	return &Router{ring: c}
 }
 
-func (r *Router) GetWorkerIP(tenantID string) string {
+// GetWorkerIP returns the worker IP for the given routing key using consistent hashing.
+// The key should be unique per request to ensure even load distribution across workers.
+func (r *Router) GetWorkerIP(key string) string {
 
-	member := r.ring.LocateKey([]byte(tenantID))
+	member := r.ring.LocateKey([]byte(key))
 	if member == nil {
 		return ""
 	}
