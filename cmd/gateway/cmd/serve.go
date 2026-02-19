@@ -13,6 +13,7 @@ import (
 
 	"github.com/spf13/cobra"
 
+	"github.com/alphauslabs/jennah/cmd/gateway/middleware"
 	"github.com/alphauslabs/jennah/cmd/gateway/service"
 	jennahv1connect "github.com/alphauslabs/jennah/gen/proto/jennahv1connect"
 	"github.com/alphauslabs/jennah/internal/database"
@@ -20,11 +21,12 @@ import (
 )
 
 var (
-	port            string
-	workerIPs       string
-	dbProjectID     string
-	dbInstance      string
-	dbDatabase      string
+	port           string
+	workerIPs      string
+	dbProjectID    string
+	dbInstance     string
+	dbDatabase     string
+	allowedOrigins string
 )
 
 var serveCmd = &cobra.Command{
@@ -40,6 +42,7 @@ func init() {
 	serveCmd.Flags().StringVar(&dbProjectID, "db-project-id", "labs-169405", "Database project ID (GCP project for Spanner)")
 	serveCmd.Flags().StringVar(&dbInstance, "db-instance", "alphaus-dev", "Database instance (Spanner instance name)")
 	serveCmd.Flags().StringVar(&dbDatabase, "db-database", "main", "Database name")
+	serveCmd.Flags().StringVar(&allowedOrigins, "allowed-origins", "https://jennah-ui-382915581671.asia-northeast1.run.app", "Comma-separated list of allowed CORS origins")
 }
 
 func runServe(cmd *cobra.Command, args []string) error {
@@ -48,7 +51,6 @@ func runServe(cmd *cobra.Command, args []string) error {
 	ctx := context.Background()
 	dbClient, err := database.NewClient(ctx, dbProjectID, dbInstance, dbDatabase)
 	if err != nil {
-
 		return fmt.Errorf("failed to initialize database client: %w", err)
 	}
 	defer dbClient.Close()
@@ -75,16 +77,24 @@ func runServe(cmd *cobra.Command, args []string) error {
 
 	gatewayService := service.NewGatewayService(router, workerClients, dbClient)
 
+	origins := strings.Split(allowedOrigins, ",")
+	for i, origin := range origins {
+		origins[i] = strings.TrimSpace(origin)
+	}
+	log.Printf("CORS allowed origins: %v", origins)
+	corsMiddleware := middleware.CORSMiddleware(origins)
+
 	mux := http.NewServeMux()
 	path, handler := jennahv1connect.NewDeploymentServiceHandler(gatewayService)
-	mux.Handle(path, handler)
-	log.Printf("Registered DeploymentService handler at path: %s", path)
 
-	mux.HandleFunc("/health", func(w http.ResponseWriter, r *http.Request) {
+	mux.Handle(path, corsMiddleware(handler))
+	log.Printf("Registered DeploymentService handler at path: %s (with CORS)", path)
+
+	mux.Handle("/health", corsMiddleware(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
 		w.Write([]byte("OK"))
-	})
-	log.Println("Health check endpoint: /health")
+	})))
+	log.Println("Health check endpoint: /health (with CORS)")
 
 	addr := fmt.Sprintf("0.0.0.0:%s", port)
 	server := &http.Server{
@@ -101,26 +111,23 @@ func runServe(cmd *cobra.Command, args []string) error {
 	go func() {
 		log.Printf("Gateway listening on %s", addr)
 		log.Println("Available endpoints:")
-		log.Printf("  • POST %sGetCurrentTenant", path)
 		log.Printf("  • POST %sSubmitJob", path)
 		log.Printf("  • POST %sListJobs", path)
+		log.Printf("  • POST %sGetCurrentTenant", path)
 		log.Printf("  • GET  /health")
-		log.Println("OAuth-enabled - tenantId auto-generated from auth headers")
-		log.Println("Database: Cloud Spanner (persistent tenant storage)")
-		log.Println("")
-
 		if err := server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
 			log.Fatalf("Failed to start server: %v", err)
 		}
 	}()
 
 	<-sigCtx.Done()
-	log.Println("Shutdown signal received, shutting down...")
-	shutdownCtx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	log.Println("Shutting down gateway gracefully...")
+
+	shutdownCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 
 	if err := server.Shutdown(shutdownCtx); err != nil {
-		log.Printf("Error during server shutdown: %v", err)
+		return fmt.Errorf("server shutdown failed: %w", err)
 	}
 
 	log.Println("Gateway stopped")
