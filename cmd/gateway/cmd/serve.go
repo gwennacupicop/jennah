@@ -42,7 +42,12 @@ func init() {
 	serveCmd.Flags().StringVar(&dbProjectID, "db-project-id", "labs-169405", "Database project ID (GCP project for Spanner)")
 	serveCmd.Flags().StringVar(&dbInstance, "db-instance", "alphaus-dev", "Database instance (Spanner instance name)")
 	serveCmd.Flags().StringVar(&dbDatabase, "db-database", "main", "Database name")
-	serveCmd.Flags().StringVar(&allowedOrigins, "allowed-origins", "https://jennah-ui-382915581671.asia-northeast1.run.app", "Comma-separated list of allowed CORS origins")
+	defaultOrigins := os.Getenv("ALLOWED_ORIGINS")
+	if defaultOrigins == "" {
+		// Include both production and localhost by default
+		defaultOrigins = "https://jennah-ui-382915581671.asia-northeast1.run.app,http://localhost:5173"
+	}
+	serveCmd.Flags().StringVar(&allowedOrigins, "allowed-origins", defaultOrigins, "Comma-separated list of allowed CORS origins")
 }
 
 func runServe(cmd *cobra.Command, args []string) error {
@@ -114,6 +119,8 @@ func runServe(cmd *cobra.Command, args []string) error {
 		log.Printf("  • POST %sSubmitJob", path)
 		log.Printf("  • POST %sListJobs", path)
 		log.Printf("  • POST %sGetCurrentTenant", path)
+		log.Printf("  • POST %sCancelJob", path)
+		log.Printf("  • POST %sDeleteJob", path)
 		log.Printf("  • GET  /health")
 		if err := server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
 			log.Fatalf("Failed to start server: %v", err)

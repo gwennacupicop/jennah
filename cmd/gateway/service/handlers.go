@@ -125,28 +125,121 @@ func (s *GatewayService) ListJobs(
 	}
 	log.Printf("List jobs request from user %s (tenantId=%s)", oauthUser.Email, tenantId)
 
-	jobs, err := s.dbClient.ListJobs(ctx, tenantId)
+	workerIP := s.router.GetWorkerIP(tenantId)
+	if workerIP == "" {
+		log.Printf("No worker found for tenantId: %s", tenantId)
+		return nil, connect.NewError(connect.CodeInternal, errors.New("no worker found for tenantId"))
+	}
+
+	workerClient, exists := s.workerClients[workerIP]
+	if !exists {
+		log.Printf("No worker client found for IP: %s", workerIP)
+		return nil, connect.NewError(connect.CodeInternal, errors.New("no worker client found for tenantId"))
+	}
+
+	workerReq := connect.NewRequest(&jennahv1.ListJobsRequest{})
+	workerReq.Header().Set("X-Tenant-Id", tenantId)
+
+	response, err := workerClient.ListJobs(ctx, workerReq)
 	if err != nil {
-		log.Printf("Failed to list jobs from database: %v", err)
-		return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("failed to list jobs: %w", err))
-	}
-	log.Printf("Retrieved %d jobs for tenant %s from database", len(jobs), tenantId)
-
-	// Convert database jobs to API response format
-	protoJobs := make([]*jennahv1.Job, 0, len(jobs))
-	for _, job := range jobs {
-		protoJob := &jennahv1.Job{
-			JobId:     job.JobId,
-			TenantId:  job.TenantId,
-			ImageUri:  job.ImageUri,
-			Status:    job.Status,
-			CreatedAt: job.CreatedAt.Format(time.RFC3339),
-		}
-		protoJobs = append(protoJobs, protoJob)
+		log.Printf("ERROR: Worker %s ListJobs failed: %v", workerIP, err)
+		return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("worker failed: %w", err))
 	}
 
-	log.Printf("Successfully listed %d jobs for tenant %s", len(protoJobs), tenantId)
-	return connect.NewResponse(&jennahv1.ListJobsResponse{
-		Jobs: protoJobs,
-	}), nil
+	log.Printf("Successfully listed %d jobs for tenant %s via worker %s", len(response.Msg.Jobs), tenantId, workerIP)
+	return response, nil
+}
+
+func (s *GatewayService) CancelJob(
+	ctx context.Context,
+	req *connect.Request[jennahv1.CancelJobRequest],
+) (*connect.Response[jennahv1.CancelJobResponse], error) {
+	log.Printf("Received cancel job request")
+
+	oauthUser, err := extractOAuthUser(req.Header())
+	if err != nil {
+		log.Printf("OAuth authentication failed: %v", err)
+		return nil, connect.NewError(connect.CodeUnauthenticated, err)
+	}
+
+	tenantId, err := s.getOrCreateTenant(oauthUser)
+	if err != nil {
+		log.Printf("Failed to get or create tenant: %v", err)
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+
+	if req.Msg.JobId == "" {
+		return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("job_id is required"))
+	}
+
+	workerIP := s.router.GetWorkerIP(tenantId)
+	if workerIP == "" {
+		log.Printf("No worker found for tenantId: %s", tenantId)
+		return nil, connect.NewError(connect.CodeInternal, errors.New("no worker found for tenantId"))
+	}
+
+	workerClient, exists := s.workerClients[workerIP]
+	if !exists {
+		log.Printf("No worker client found for IP: %s", workerIP)
+		return nil, connect.NewError(connect.CodeInternal, errors.New("no worker client found for tenantId"))
+	}
+
+	workerReq := connect.NewRequest(&jennahv1.CancelJobRequest{JobId: req.Msg.JobId})
+	workerReq.Header().Set("X-Tenant-Id", tenantId)
+
+	response, err := workerClient.CancelJob(ctx, workerReq)
+	if err != nil {
+		log.Printf("ERROR: Worker %s CancelJob failed for job %s: %v", workerIP, req.Msg.JobId, err)
+		return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("worker failed: %w", err))
+	}
+
+	log.Printf("Job cancelled successfully: jobId=%s, tenantId=%s, worker=%s", req.Msg.JobId, tenantId, workerIP)
+	return response, nil
+}
+
+func (s *GatewayService) DeleteJob(
+	ctx context.Context,
+	req *connect.Request[jennahv1.DeleteJobRequest],
+) (*connect.Response[jennahv1.DeleteJobResponse], error) {
+	log.Printf("Received delete job request")
+
+	oauthUser, err := extractOAuthUser(req.Header())
+	if err != nil {
+		log.Printf("OAuth authentication failed: %v", err)
+		return nil, connect.NewError(connect.CodeUnauthenticated, err)
+	}
+
+	tenantId, err := s.getOrCreateTenant(oauthUser)
+	if err != nil {
+		log.Printf("Failed to get or create tenant: %v", err)
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+
+	if req.Msg.JobId == "" {
+		return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("job_id is required"))
+	}
+
+	workerIP := s.router.GetWorkerIP(tenantId)
+	if workerIP == "" {
+		log.Printf("No worker found for tenantId: %s", tenantId)
+		return nil, connect.NewError(connect.CodeInternal, errors.New("no worker found for tenantId"))
+	}
+
+	workerClient, exists := s.workerClients[workerIP]
+	if !exists {
+		log.Printf("No worker client found for IP: %s", workerIP)
+		return nil, connect.NewError(connect.CodeInternal, errors.New("no worker client found for tenantId"))
+	}
+
+	workerReq := connect.NewRequest(&jennahv1.DeleteJobRequest{JobId: req.Msg.JobId})
+	workerReq.Header().Set("X-Tenant-Id", tenantId)
+
+	response, err := workerClient.DeleteJob(ctx, workerReq)
+	if err != nil {
+		log.Printf("ERROR: Worker %s DeleteJob failed for job %s: %v", workerIP, req.Msg.JobId, err)
+		return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("worker failed: %w", err))
+	}
+
+	log.Printf("Job deleted successfully: jobId=%s, tenantId=%s, worker=%s", req.Msg.JobId, tenantId, workerIP)
+	return response, nil
 }

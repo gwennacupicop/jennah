@@ -126,7 +126,7 @@ curl -X POST http://localhost:8080/jennah.v1.DeploymentService/SubmitJob \
 
 ### ListJobs
 
-List jobs for authenticated tenant.
+List jobs for authenticated tenant (forwarded by gateway to the tenant-assigned worker).
 
 curl -X POST http://localhost:8080/jennah.v1.DeploymentService/ListJobs \
   -H "Content-Type: application/json" \
@@ -134,6 +134,28 @@ curl -X POST http://localhost:8080/jennah.v1.DeploymentService/ListJobs \
   -H "X-OAuth-UserId: oauth-user-123" \
   -H "X-OAuth-Provider: google" \
   -d '{}'
+
+### CancelJob
+
+Cancel a tenant job in an active state (gateway forwards request to the tenant-assigned worker).
+
+curl -X POST http://localhost:8080/jennah.v1.DeploymentService/CancelJob \
+  -H "Content-Type: application/json" \
+  -H "X-OAuth-Email: user@example.com" \
+  -H "X-OAuth-UserId: oauth-user-123" \
+  -H "X-OAuth-Provider: google" \
+  -d '{"jobId": "<job-uuid>"}'
+
+### DeleteJob
+
+Delete a tenant job from the system (gateway forwards request to the tenant-assigned worker).
+
+curl -X POST http://localhost:8080/jennah.v1.DeploymentService/DeleteJob \
+  -H "Content-Type: application/json" \
+  -H "X-OAuth-Email: user@example.com" \
+  -H "X-OAuth-UserId: oauth-user-123" \
+  -H "X-OAuth-Provider: google" \
+  -d '{"jobId": "<job-uuid>"}'
 
 ### Health Check
 
@@ -159,6 +181,8 @@ Consistent hashing based on tenant ID ensures:
 - Same tenant always routes to same worker
 - Even distribution across workers
 - Minimal reassignment when workers scale
+
+Gateway forwards job operations (`SubmitJob`, `ListJobs`, `CancelJob`, `DeleteJob`) to the selected worker and uses Spanner directly for tenant lifecycle data.
 
 ### Thread Safety
 
