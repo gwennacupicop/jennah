@@ -9,6 +9,8 @@ import (
 	"sync"
 	"time"
 
+	gcpbatch "cloud.google.com/go/batch/apiv1"
+	batchpb "cloud.google.com/go/batch/apiv1/batchpb"
 	"connectrpc.com/connect"
 	"github.com/google/uuid"
 
@@ -36,11 +38,12 @@ type JobPoller struct {
 
 type WorkerServer struct {
 	jennahv1connect.UnimplementedDeploymentServiceHandler
-	dbClient      *database.Client
-	batchProvider batch.Provider
-	jobConfig     *config.JobConfigFile
-	pollers       map[string]*JobPoller // Key: "tenantID/jobID"
-	pollersMutex  sync.Mutex
+	dbClient       *database.Client
+	batchProvider  batch.Provider
+	jobConfig      *config.JobConfigFile
+	pollers        map[string]*JobPoller // Key: "tenantID/jobID"
+	pollersMutex   sync.Mutex
+	gcpBatchClient *gcpbatch.Client
 }
 
 func (s *WorkerServer) SubmitJob(
@@ -223,10 +226,19 @@ func (s *WorkerServer) CancelJob(
 
 	// Cancel job in GCP Batch
 	if job.GcpBatchJobName != nil {
-		err = s.batchProvider.CancelJob(ctx, *job.GcpBatchJobName)
+		cancelReq := &batchpb.CancelJobRequest{
+			Name: *job.GcpBatchJobName,
+		}
+		op, err := s.gcpBatchClient.CancelJob(ctx, cancelReq)
 		if err != nil {
 			log.Printf("Error cancelling job in GCP Batch: %v", err)
 			return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("failed to cancel job in GCP Batch: %w", err))
+		}
+
+		_, err = op.Poll(ctx)
+		if err != nil {
+			log.Printf("Error polling cancel operation: %v", err)
+			return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("failed to cancel operation: %w", err))
 		}
 		log.Printf("Job %s cancelled in GCP Batch", jobID)
 	}
@@ -282,12 +294,21 @@ func (s *WorkerServer) DeleteJob(
 		return nil, connect.NewError(connect.CodeNotFound, fmt.Errorf("job not found: %w", err))
 	}
 
-	// Delete job from GCP Batch (using CancelJob which calls DeleteJob on GCP)
+	// Delete job from GCP Batch
 	if job.GcpBatchJobName != nil {
-		err = s.batchProvider.CancelJob(ctx, *job.GcpBatchJobName)
+		deleteReq := &batchpb.DeleteJobRequest{
+			Name: *job.GcpBatchJobName,
+		}
+		op, err := s.gcpBatchClient.DeleteJob(ctx, deleteReq)
 		if err != nil {
 			log.Printf("Error deleting job from GCP Batch: %v", err)
 			return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("failed to delete job from GCP Batch: %w", err))
+		}
+
+		err = op.Poll(ctx)
+		if err != nil {
+			log.Printf("Error polling delete operation: %v", err)
+			return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("failed to delete operation: %w", err))
 		}
 		log.Printf("Job %s deleted from GCP Batch", jobID)
 	}

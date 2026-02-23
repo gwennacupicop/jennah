@@ -10,6 +10,7 @@ import (
 	"syscall"
 	"time"
 
+	gcpbatch "cloud.google.com/go/batch/apiv1"
 	"github.com/alphauslabs/jennah/gen/proto/jennahv1connect"
 	"github.com/alphauslabs/jennah/internal/batch"
 	_ "github.com/alphauslabs/jennah/internal/batch/gcp" // Register GCP provider
@@ -62,11 +63,20 @@ func main() {
 		jobConfig.DefaultResources.MemoryMiB,
 		jobConfig.DefaultResources.MaxRunDurationSeconds)
 
+	// Initialize GCP Batch client
+	gcpBatchClient, err := gcpbatch.NewClient(ctx)
+	if err != nil {
+		log.Fatalf("Failed to create GCP Batch client: %v", err)
+	}
+	defer gcpBatchClient.Close()
+	log.Println("Initialized GCP Batch client")
+
 	workerServer := &WorkerServer{
-		dbClient:      dbClient,
-		batchProvider: batchProvider,
-		jobConfig:     jobConfig,
-		pollers:       make(map[string]*JobPoller),
+		dbClient:       dbClient,
+		batchProvider:  batchProvider,
+		jobConfig:      jobConfig,
+		pollers:        make(map[string]*JobPoller),
+		gcpBatchClient: gcpBatchClient,
 	}
 
 	mux := http.NewServeMux()
