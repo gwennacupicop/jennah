@@ -66,26 +66,9 @@ var submitCmd = &cobra.Command{
 		// Print header info
 		fmt.Printf("Gateway URL:      %s\n", gw.baseURL)
 		fmt.Printf("User ID:          %s\n", gw.userID)
-		fmt.Printf("User Email:       %s\n", gw.email)
+		fmt.Printf("Tenant ID:        %s\n", gw.tenantID)
 		if resourceProfile != nil && resourceProfile != "" {
 			fmt.Printf("Resource Profile: %v\n", resourceProfile)
-		}
-
-		// Print commands if present
-		if cmds := getField("commands", "commands"); cmds != nil {
-			fmt.Println()
-			fmt.Println("Commands:")
-			switch v := cmds.(type) {
-			case []interface{}:
-				for i, c := range v {
-					if i == 0 {
-						fmt.Printf("  %v", c)
-					} else {
-						fmt.Printf(" %v", c)
-					}
-				}
-				fmt.Println()
-			}
 		}
 		fmt.Println()
 

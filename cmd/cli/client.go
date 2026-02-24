@@ -18,6 +18,7 @@ type GatewayClient struct {
 	baseURL  string
 	email    string
 	userID   string
+	tenantID string
 	provider string
 	http     *http.Client
 }
@@ -43,6 +44,7 @@ func newGatewayClient(cmd *cobra.Command) (*GatewayClient, error) {
 	}
 
 	// Fall back to saved config from `jennah login`
+	tenantID := ""
 	if email == "" || userID == "" {
 		if cfg, err := loadConfig(); err == nil && cfg != nil {
 			if email == "" {
@@ -54,6 +56,7 @@ func newGatewayClient(cmd *cobra.Command) (*GatewayClient, error) {
 			if provider == "" && cfg.Provider != "" {
 				provider = cfg.Provider
 			}
+			tenantID = cfg.TenantID
 		}
 	}
 
@@ -74,6 +77,7 @@ func newGatewayClient(cmd *cobra.Command) (*GatewayClient, error) {
 		baseURL:  gateway,
 		email:    email,
 		userID:   userID,
+		tenantID: tenantID,
 		provider: provider,
 		http:     &http.Client{},
 	}, nil

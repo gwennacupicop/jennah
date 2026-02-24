@@ -16,6 +16,7 @@ import (
 type Config struct {
 	Email    string `json:"email"`
 	UserID   string `json:"user_id"`
+	TenantID string `json:"tenant_id,omitempty"`
 	Provider string `json:"provider,omitempty"`
 }
 
@@ -162,6 +163,12 @@ var loginCmd = &cobra.Command{
 			fmt.Println("✅ Account registered.")
 		} else {
 			fmt.Println("✅ Existing account found.")
+		}
+
+		// Save tenant ID into config.
+		cfg.TenantID = tenantResult.TenantID
+		if err := saveConfig(cfg); err != nil {
+			return fmt.Errorf("failed to save tenant id: %w", err)
 		}
 
 		fmt.Println()
