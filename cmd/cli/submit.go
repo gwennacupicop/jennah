@@ -64,7 +64,9 @@ var submitCmd = &cobra.Command{
 		}
 
 		// Print header info
-		fmt.Printf("Gateway URL: %s\n", gw.baseURL)
+		fmt.Printf("Gateway URL:      %s\n", gw.baseURL)
+		fmt.Printf("User ID:          %s\n", gw.userID)
+		fmt.Printf("User Email:       %s\n", gw.email)
 		if resourceProfile != nil && resourceProfile != "" {
 			fmt.Printf("Resource Profile: %v\n", resourceProfile)
 		}
