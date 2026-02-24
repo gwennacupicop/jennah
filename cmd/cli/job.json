@@ -1,6 +1,7 @@
 {
-  "image_uri": "gcr.io/google-samples/hello-app:1.0",
+  "image_uri": "docker.io/ubuntu:22.04",
   "resource_profile": "default",
+  "commands": ["/bin/bash", "-c", "echo Job started at $(date) && sleep 10 && echo Job finished at $(date)"],
   "env_vars": {
     "TEST_ENV": "production",
     "APP_NAME": "hello-world"

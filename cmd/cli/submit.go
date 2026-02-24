@@ -68,6 +68,23 @@ var submitCmd = &cobra.Command{
 		if resourceProfile != nil && resourceProfile != "" {
 			fmt.Printf("Resource Profile: %v\n", resourceProfile)
 		}
+
+		// Print commands if present
+		if cmds := getField("commands", "commands"); cmds != nil {
+			fmt.Println()
+			fmt.Println("Commands:")
+			switch v := cmds.(type) {
+			case []interface{}:
+				for i, c := range v {
+					if i == 0 {
+						fmt.Printf("  %v", c)
+					} else {
+						fmt.Printf(" %v", c)
+					}
+				}
+				fmt.Println()
+			}
+		}
 		fmt.Println()
 
 		// Print full request payload as formatted JSON
