@@ -18,8 +18,11 @@ jobs:
         with:
           go-version: "1.25"
 
+      - name: Download dependencies
+        run: go mod download
+
       - name: Build gateway
-        run: go build -v ./cmd/gateway
+        run: go build -mod=mod -v ./cmd/gateway
 
       - name: Build worker
-        run: go build -v ./cmd/worker
+        run: go build -mod=mod -v ./cmd/worker
