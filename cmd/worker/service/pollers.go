@@ -102,7 +102,7 @@ func (poller *JobPoller) poll(ctx context.Context, server *WorkerService) {
 
 				// Record state transition in audit trail.
 				transitionID := uuid.New().String()
-				reason := fmt.Sprintf("Status updated from GCP Batch API")
+				reason := "Status updated from GCP Batch API"
 				err = poller.dbClient.RecordStateTransition(ctx, poller.tenantID, poller.jobID, transitionID, &oldStatus, dbStatus, &reason)
 				if err != nil {
 					log.Printf("Error recording state transition: %v", err)
