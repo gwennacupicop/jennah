@@ -36,6 +36,10 @@ type Job struct {
 	BootDiskSizeGb    *int64     `spanner:"BootDiskSizeGb"`
 	UseSpotVms        *bool      `spanner:"UseSpotVms"`
 	ServiceAccount    *string    `spanner:"ServiceAccount"`
+	OwnerWorkerId     *string    `spanner:"OwnerWorkerId"`
+	PreferredWorkerId *string    `spanner:"PreferredWorkerId"`
+	LeaseExpiresAt    *time.Time `spanner:"LeaseExpiresAt"`
+	LastHeartbeatAt   *time.Time `spanner:"LastHeartbeatAt"`
 }
 
 // JobStateTransition tracks state changes for audit trail

@@ -122,21 +122,27 @@ func (s *WorkerService) SubmitJob(
 	}
 
 	// Insert job record with PENDING status and advanced config.
+	now := time.Now().UTC()
+	leaseUntil := now.Add(s.leaseTTL)
 	err := s.dbClient.InsertJobFull(ctx, &database.Job{
-		TenantId:        tenantID,
-		JobId:           internalJobID,
-		Status:          database.JobStatusPending,
-		ImageUri:        req.Msg.ImageUri,
-		Commands:        req.Msg.Commands,
-		RetryCount:      0,
-		MaxRetries:      3,
-		EnvVarsJson:     envVarsJson,
-		Name:            ptrStringOrNil(req.Msg.Name),
-		ResourceProfile: ptrStringOrNil(req.Msg.ResourceProfile),
-		MachineType:     ptrStringOrNil(req.Msg.MachineType),
-		BootDiskSizeGb:  ptrInt64OrNil(req.Msg.BootDiskSizeGb),
-		UseSpotVms:      ptrBoolOrNil(req.Msg.UseSpotVms),
-		ServiceAccount:  ptrStringOrNil(req.Msg.ServiceAccount),
+		TenantId:          tenantID,
+		JobId:             internalJobID,
+		Status:            database.JobStatusPending,
+		ImageUri:          req.Msg.ImageUri,
+		Commands:          req.Msg.Commands,
+		RetryCount:        0,
+		MaxRetries:        3,
+		EnvVarsJson:       envVarsJson,
+		Name:              ptrStringOrNil(req.Msg.Name),
+		ResourceProfile:   ptrStringOrNil(req.Msg.ResourceProfile),
+		MachineType:       ptrStringOrNil(req.Msg.MachineType),
+		BootDiskSizeGb:    ptrInt64OrNil(req.Msg.BootDiskSizeGb),
+		UseSpotVms:        ptrBoolOrNil(req.Msg.UseSpotVms),
+		ServiceAccount:    ptrStringOrNil(req.Msg.ServiceAccount),
+		OwnerWorkerId:     &s.workerID,
+		PreferredWorkerId: &s.workerID,
+		LeaseExpiresAt:    &leaseUntil,
+		LastHeartbeatAt:   &now,
 	})
 	if err != nil {
 		log.Printf("Error inserting job to database: %v", err)

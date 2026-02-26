@@ -38,7 +38,7 @@ var serveCmd = &cobra.Command{
 
 func init() {
 	serveCmd.Flags().StringVar(&port, "port", "8080", "Port to listen on")
-	serveCmd.Flags().StringVar(&workerIPs, "worker-ips", "10.146.0.26", "Comma-separated list of worker IPs")
+	serveCmd.Flags().StringVar(&workerIPs, "worker-ips", "10.146.0.26,10.146.0.44", "Comma-separated list of worker IPs")
 	serveCmd.Flags().StringVar(&dbProjectID, "db-project-id", "labs-169405", "Database project ID (GCP project for Spanner)")
 	serveCmd.Flags().StringVar(&dbInstance, "db-instance", "alphaus-dev", "Database instance (Spanner instance name)")
 	serveCmd.Flags().StringVar(&dbDatabase, "db-database", "main", "Database name")

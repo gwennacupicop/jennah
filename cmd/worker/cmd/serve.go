@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"strconv"
 	"syscall"
 	"time"
 
@@ -81,7 +82,23 @@ func runServe(cmd *cobra.Command, args []string) error {
 	defer gcpBatchClient.Close()
 	log.Println("Initialized GCP Batch client")
 
-	workerService := service.NewWorkerService(dbClient, batchProvider, jobConfig, gcpBatchClient)
+	workerID := os.Getenv("WORKER_ID")
+	if workerID == "" {
+		hostname, err := os.Hostname()
+		if err != nil || hostname == "" {
+			workerID = "worker-unknown"
+		} else {
+			workerID = hostname
+		}
+	}
+
+	leaseTTLSeconds := getEnvAsIntOrDefault("WORKER_LEASE_TTL_SECONDS", 30)
+	claimIntervalSeconds := getEnvAsIntOrDefault("WORKER_CLAIM_INTERVAL_SECONDS", 5)
+	leaseTTL := time.Duration(leaseTTLSeconds) * time.Second
+	claimInterval := time.Duration(claimIntervalSeconds) * time.Second
+
+	workerService := service.NewWorkerService(dbClient, batchProvider, jobConfig, gcpBatchClient, workerID, leaseTTL, claimInterval)
+	log.Printf("Worker identity: %s (lease_ttl=%s, claim_interval=%s)", workerID, leaseTTL, claimInterval)
 
 	// Resume polling for active jobs from before restart.
 	if err := service.ResumeActiveJobPollers(ctx, workerService, dbClient); err != nil {
@@ -107,6 +124,8 @@ func runServe(cmd *cobra.Command, args []string) error {
 
 	sigCtx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
+
+	workerService.StartLeaseReconciler(sigCtx)
 
 	go func() {
 		log.Printf("Worker listening on %s", addr)
@@ -138,4 +157,16 @@ func runServe(cmd *cobra.Command, args []string) error {
 
 	log.Println("Worker stopped")
 	return nil
+}
+
+func getEnvAsIntOrDefault(name string, fallback int) int {
+	v := os.Getenv(name)
+	if v == "" {
+		return fallback
+	}
+	parsed, err := strconv.Atoi(v)
+	if err != nil || parsed <= 0 {
+		return fallback
+	}
+	return parsed
 }
