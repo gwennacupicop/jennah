@@ -25,5 +25,67 @@
       "memoryMiB": 16384,
       "maxRunDurationSeconds": 14400
     }
+  },
+  "machineTypeResources": {
+    "e2-micro": {
+      "cpuMillis": 500,
+      "memoryMiB": 1024,
+      "maxRunDurationSeconds": 3600
+    },
+    "e2-small": {
+      "cpuMillis": 1000,
+      "memoryMiB": 2048,
+      "maxRunDurationSeconds": 3600
+    },
+    "e2-medium": {
+      "cpuMillis": 1000,
+      "memoryMiB": 4096,
+      "maxRunDurationSeconds": 3600
+    },
+    "e2-standard-2": {
+      "cpuMillis": 2000,
+      "memoryMiB": 8192,
+      "maxRunDurationSeconds": 3600
+    },
+    "e2-standard-4": {
+      "cpuMillis": 4000,
+      "memoryMiB": 16384,
+      "maxRunDurationSeconds": 3600
+    },
+    "n1-standard-1": {
+      "cpuMillis": 1000,
+      "memoryMiB": 3840,
+      "maxRunDurationSeconds": 3600
+    },
+    "n1-standard-2": {
+      "cpuMillis": 2000,
+      "memoryMiB": 7680,
+      "maxRunDurationSeconds": 3600
+    },
+    "n1-standard-4": {
+      "cpuMillis": 4000,
+      "memoryMiB": 15360,
+      "maxRunDurationSeconds": 3600
+    },
+    "n2-standard-2": {
+      "cpuMillis": 2000,
+      "memoryMiB": 8192,
+      "maxRunDurationSeconds": 3600
+    },
+    "n2-standard-4": {
+      "cpuMillis": 4000,
+      "memoryMiB": 16384,
+      "maxRunDurationSeconds": 3600
+    },
+    "c2-standard-4": {
+      "cpuMillis": 4000,
+      "memoryMiB": 16384,
+      "maxRunDurationSeconds": 3600
+    },
+    "c2-standard-8": {
+      "cpuMillis": 8000,
+      "memoryMiB": 32768,
+      "maxRunDurationSeconds": 3600
+    }
   }
 }

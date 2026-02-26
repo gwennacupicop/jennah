@@ -154,7 +154,7 @@ func (s *WorkerService) SubmitJob(
 	log.Printf("Job %s saved to database with PENDING status", internalJobID)
 
 	// Submit job to cloud batch provider.
-	// Resolve resource requirements: named preset merged with any per-field override.
+	// Resolve resource requirements: machine type, named preset merged with any per-field override.
 	var resourceOverride *config.ResourceOverride
 	if o := req.Msg.ResourceOverride; o != nil {
 		resourceOverride = &config.ResourceOverride{
@@ -164,12 +164,18 @@ func (s *WorkerService) SubmitJob(
 		}
 	}
 
+	// Extract machine type as string for resource resolution
+	machineType := ""
+	if req.Msg.MachineType != "" {
+		machineType = req.Msg.MachineType
+	}
+
 	// Build batch job configuration with all available fields
 	batchJobConfig := batch.JobConfig{
 		JobID:               providerJobID,
 		ImageURI:            req.Msg.ImageUri,
 		EnvVars:             req.Msg.EnvVars,
-		Resources:           s.jobConfig.ResolveResources(req.Msg.ResourceProfile, resourceOverride),
+		Resources:           s.jobConfig.ResolveResources(machineType, req.Msg.ResourceProfile, resourceOverride),
 		MachineType:         req.Msg.MachineType,
 		BootDiskSizeGb:      req.Msg.BootDiskSizeGb,
 		UseSpotVMs:          req.Msg.UseSpotVms,
