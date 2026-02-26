@@ -164,11 +164,31 @@ func (s *WorkerService) SubmitJob(
 		}
 	}
 
+	// Build batch job configuration with all available fields
 	batchJobConfig := batch.JobConfig{
-		JobID:     providerJobID,
-		ImageURI:  req.Msg.ImageUri,
-		EnvVars:   req.Msg.EnvVars,
-		Resources: s.jobConfig.ResolveResources(req.Msg.ResourceProfile, resourceOverride),
+		JobID:               providerJobID,
+		ImageURI:            req.Msg.ImageUri,
+		EnvVars:             req.Msg.EnvVars,
+		Resources:           s.jobConfig.ResolveResources(req.Msg.ResourceProfile, resourceOverride),
+		MachineType:         req.Msg.MachineType,
+		BootDiskSizeGb:      req.Msg.BootDiskSizeGb,
+		UseSpotVMs:          req.Msg.UseSpotVms,
+		ServiceAccount:      req.Msg.ServiceAccount,
+		Commands:            req.Msg.Commands,
+		ContainerEntrypoint: "", // Not exposed in proto yet
+		RequestID:           internalJobID, // Use internal job ID as idempotency key
+	}
+
+	// Configure task group if needed (currently default: 1 task)
+	// Future: allow SubmitJobRequest to specify task groups
+	batchJobConfig.TaskGroup = &batch.TaskGroupConfig{
+		TaskCount:        1,
+		Parallelism:      0,
+		SchedulingPolicy: "AS_SOON_AS_POSSIBLE",
+		TaskCountPerNode: 0,
+		RequireHostsFile: false,
+		PermissiveSsh:    false,
+		RunAsNonRoot:     false,
 	}
 
 	jobResult, err := s.batchProvider.SubmitJob(ctx, batchJobConfig)

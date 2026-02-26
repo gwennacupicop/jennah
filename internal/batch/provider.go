@@ -24,6 +24,46 @@ type Provider interface {
 	ListJobs(ctx context.Context) ([]string, error)
 }
 
+// TaskGroupConfig contains configuration for a group of tasks.
+type TaskGroupConfig struct {
+	// TaskCount is the total number of tasks in this group (default: 1).
+	TaskCount int64
+
+	// Parallelism is the maximum number of tasks to run concurrently.
+	// 0 means unlimited (default behavior).
+	Parallelism int64
+
+	// SchedulingPolicy determines task execution order.
+	// Options: "AS_SOON_AS_POSSIBLE" (default) or "IN_ORDER".
+	SchedulingPolicy string
+
+	// TaskCountPerNode limits the number of tasks per VM (default: 1).
+	TaskCountPerNode int64
+
+	// RequireHostsFile populates /etc/hosts with all VMs in the task group.
+	// Useful for distributed computing and multi-VM coordination.
+	RequireHostsFile bool
+
+	// PermissiveSsh enables passwordless SSH between task VMs.
+	// Required for distributed frameworks (e.g., Spark, MPI).
+	PermissiveSsh bool
+
+	// RunAsNonRoot enforces non-root execution of tasks (optional).
+	RunAsNonRoot bool
+}
+
+// AcceleratorConfig specifies GPU/TPU requirements.
+type AcceleratorConfig struct {
+	// Type is the accelerator type (e.g., "nvidia-tesla-t4", "nvidia-tesla-v100", "tpu-v4").
+	Type string
+
+	// Count is the number of accelerators to attach.
+	Count int64
+
+	// DriverVersion is an optional specific GPU driver version.
+	DriverVersion string
+}
+
 // JobConfig contains the configuration for submitting a batch job.
 // This structure is cloud-agnostic and maps to provider-specific formats.
 type JobConfig struct {
@@ -38,6 +78,75 @@ type JobConfig struct {
 
 	// Resources specifies compute resource requirements (optional).
 	Resources *ResourceRequirements
+
+	// TaskGroup specifies task group configuration (optional, defaults to 1 task).
+	TaskGroup *TaskGroupConfig
+
+	// MachineType is the Compute Engine machine type (e.g., "e2-standard-4", "n1-standard-16").
+	// If empty, GCP Batch will use a default machine type.
+	MachineType string
+
+	// BootDiskSizeGb is the boot disk size in gigabytes (default: 50, range: [10, 65536]).
+	BootDiskSizeGb int64
+
+	// UseSpotVMs enables Spot VMs for cost savings (trades availability for price).
+	UseSpotVMs bool
+
+	// ServiceAccount is the custom service account email to run tasks under.
+	// If empty, the default Compute Engine service account is used.
+	ServiceAccount string
+
+	// Commands are the commands to execute in the container (appended to/overrides CMD).
+	Commands []string
+
+	// ContainerEntrypoint optionally overrides the container's ENTRYPOINT.
+	ContainerEntrypoint string
+
+	// Accelerators specifies GPU/TPU requirements (optional).
+	Accelerators *AcceleratorConfig
+
+	// RequestID is an idempotency key (UUID format) for deduplicating job submissions.
+	// If not provided, one will be generated.
+	RequestID string
+
+	// JobLabels are custom labels applied to the job resource for billing/organization.
+	JobLabels map[string]string
+
+	// NetworkName is the VPC network resource path (optional).
+	// Example: "projects/my-project/global/networks/my-network"
+	NetworkName string
+
+	// SubnetworkName is the subnetwork resource path (optional).
+	// Example: "projects/my-project/regions/us-central1/subnetworks/my-subnet"
+	SubnetworkName string
+
+	// BlockExternalIP disables external IP assignment for task VMs (private networking).
+	BlockExternalIP bool
+
+	// MinCpuPlatform specifies the minimum CPU platform processors (optional).
+	// Example: "Intel Cascade Lake", "AMD EPYC Rome"
+	MinCpuPlatform string
+
+	// Priority sets job scheduling priority (0-100, where 100 is highest, default: 0).
+	Priority int64
+
+	// AllowedLocations restricts where VMs can be created (optional).
+	// Example: ["us-central1", "us-west1"]
+	AllowedLocations []string
+
+	// InstallGpuDrivers enables automatic GPU driver installation from third-party sources.
+	InstallGpuDrivers bool
+
+	// InstallOpsAgent enables automatic installation of Google Cloud Operations Agent.
+	InstallOpsAgent bool
+
+	// BlockProjectSshKeys disables project-level SSH keys from accessing VMs.
+	// Enhances security by restricting SSH access.
+	BlockProjectSshKeys bool
+
+	// MaxRetryCount is the maximum number of task retries on failure (range: [0, 10]).
+	// Different from job-level retries; applies at the task granularity.
+	MaxRetryCount int32
 }
 
 // ResourceRequirements specifies compute resource requirements for a job.
