@@ -50,6 +50,16 @@ The Worker is now provider-agnostic and configured entirely via environment vari
 | ------------- | ---------------- | ------- |
 | `WORKER_PORT` | HTTP server port | `8081`  |
 
+### Optional Failover Configuration (PoC)
+
+| Variable                        | Description                                              | Default |
+| ------------------------------- | -------------------------------------------------------- | ------- |
+| `WORKER_ID`                     | Stable worker identity (set unique value per VM)         | Hostname |
+| `WORKER_LEASE_TTL_SECONDS`      | Lease expiration for active job ownership                | `30`    |
+| `WORKER_CLAIM_INTERVAL_SECONDS` | Interval for scanning/claiming orphaned active jobs      | `5`     |
+
+For multi-VM failover, set a unique `WORKER_ID` on each VM.
+
 ## Running the Worker
 
 ### Option 1: Direct Execution (Development)
@@ -166,6 +176,7 @@ gcloud run deploy jennah-worker \
 4. **Database**
    - Database schema must be deployed (see [/database/schema.sql](/database/schema.sql))
    - Run migration: [/database/migrate-cloud-resource-path.sql](/database/migrate-cloud-resource-path.sql)
+  - Run migration: [/database/migrate-worker-lease-columns.sql](/database/migrate-worker-lease-columns.sql)
    - Tenants are automatically created on first job submission if they don't exist
 
 ## Building

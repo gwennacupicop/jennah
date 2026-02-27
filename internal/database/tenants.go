@@ -8,6 +8,21 @@ import (
 	"google.golang.org/api/iterator"
 )
 
+// UpsertTenant creates a new tenant or updates it if it already exists.
+// This is safe to call even if the tenant row already exists (idempotent).
+func (c *Client) UpsertTenant(ctx context.Context, tenantID, userEmail, oauthProvider, oauthUserId string) error {
+	_, err := c.client.Apply(ctx, []*spanner.Mutation{
+		spanner.InsertOrUpdate("Tenants",
+			[]string{"TenantId", "UserEmail", "OAuthProvider", "OAuthUserId", "CreatedAt", "UpdatedAt"},
+			[]interface{}{tenantID, userEmail, oauthProvider, oauthUserId, spanner.CommitTimestamp, spanner.CommitTimestamp},
+		),
+	})
+	if err != nil {
+		return fmt.Errorf("failed to upsert tenant: %w", err)
+	}
+	return nil
+}
+
 // InsertTenant creates a new tenant
 func (c *Client) InsertTenant(ctx context.Context, tenantID, userEmail, oauthProvider, oauthUserId string) error {
 	_, err := c.client.Apply(ctx, []*spanner.Mutation{

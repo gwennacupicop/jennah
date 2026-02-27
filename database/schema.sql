@@ -29,6 +29,11 @@ CREATE TABLE Jobs (
   GcpBatchJobName STRING(1024),  -- GCP Batch job resource path: projects/{projectId}/locations/{region}/jobs/{jobId}
   GcpBatchTaskGroup STRING(1024),  -- GCP Batch task group identifier
   EnvVarsJson STRING(MAX),  -- Environment variables stored as JSON
+  -- Worker lease ownership for failover
+  OwnerWorkerId STRING(128),
+  PreferredWorkerId STRING(128),
+  LeaseExpiresAt TIMESTAMP,
+  LastHeartbeatAt TIMESTAMP,
 ) PRIMARY KEY (TenantId, JobId),
   INTERLEAVE IN PARENT Tenants ON DELETE CASCADE;
 

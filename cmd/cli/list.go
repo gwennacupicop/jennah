@@ -1,73 +1,50 @@
 package main
 
 import (
-	"context"
 	"fmt"
 	"strings"
+	"time"
 
 	"github.com/spf13/cobra"
 )
 
 var listCmd = &cobra.Command{
 	Use:   "list",
-	Short: "List jobs",
-	Long:  "jennah list --tenant-id <id> [--status <status>]",
+	Short: "List all your jobs",
+	Long:  "jennah list\n\nDisplays all jobs submitted under your account.",
 	RunE: func(cmd *cobra.Command, args []string) error {
-		tenantID, _ := cmd.Flags().GetString("tenant-id")
-		status, _ := cmd.Flags().GetString("status")
-
-		if tenantID == "" {
-			return fmt.Errorf("--tenant-id flag is required")
-		}
-
-		db, closeDB, err := newDBClient(cmd)
+		gw, err := newGatewayClient(cmd)
 		if err != nil {
 			return err
 		}
-		defer closeDB()
 
-		ctx := context.Background()
-
-		fmt.Printf("Jobs for tenant: %s\n", tenantID)
-		if status != "" {
-			status = strings.ToUpper(status)
-			fmt.Printf("Status filter:   %s\n", status)
+		jobs, err := fetchJobs(gw)
+		if err != nil {
+			return err
 		}
-		fmt.Println()
 
-		if status != "" {
-			results, err := db.ListJobsByStatus(ctx, tenantID, status)
-			if err != nil {
-				return fmt.Errorf("failed to list jobs: %w", err)
+		if len(jobs) == 0 {
+			fmt.Println("No jobs found.")
+			return nil
+		}
+
+		fmt.Printf("%-38s  %-12s  %-45s  %s\n", "JOB ID", "STATUS", "IMAGE", "CREATED")
+		fmt.Println(strings.Repeat("─", 110))
+		for _, j := range jobs {
+			img := j.ImageURI
+			if len(img) > 43 {
+				img = "..." + img[len(img)-40:]
 			}
-			if len(results) == 0 {
-				fmt.Println("No jobs found.")
-				return nil
+			created := j.CreatedAt
+			if t, err := time.Parse(time.RFC3339, j.CreatedAt); err == nil {
+				if loc, err := time.LoadLocation("Asia/Manila"); err == nil {
+					created = t.In(loc).Format("2006-01-02 15:04:05")
+				} else {
+					created = t.Local().Format("2006-01-02 15:04:05")
+				}
 			}
-			fmt.Printf("%-38s  %-12s  %s\n", "JOB ID", "STATUS", "CREATED")
-			fmt.Println(strings.Repeat("\u2500", 72))
-			for _, job := range results {
-				fmt.Printf("%-38s  %-12s  %s\n", job.JobId, job.Status, job.CreatedAt.Format("2006-01-02 15:04:05"))
-			}
-		} else {
-			results, err := db.ListJobs(ctx, tenantID)
-			if err != nil {
-				return fmt.Errorf("failed to list jobs: %w", err)
-			}
-			if len(results) == 0 {
-				fmt.Println("No jobs found.")
-				return nil
-			}
-			fmt.Printf("%-38s  %-12s  %s\n", "JOB ID", "STATUS", "CREATED")
-			fmt.Println(strings.Repeat("\u2500", 72))
-			for _, job := range results {
-				fmt.Printf("%-38s  %-12s  %s\n", job.JobId, job.Status, job.CreatedAt.Format("2006-01-02 15:04:05"))
-			}
+			fmt.Printf("%-38s  %-12s  %-45s  %s\n", j.JobID, j.Status, img, created)
 		}
 		return nil
 	},
-}
-
-func init() {
-	listCmd.Flags().String("status", "", "Filter by status (PENDING, SCHEDULED, RUNNING, COMPLETED, FAILED, CANCELLED)")
 }

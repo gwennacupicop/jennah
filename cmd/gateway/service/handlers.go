@@ -5,27 +5,113 @@ import (
 	"errors"
 	"fmt"
 	"log"
+	"net/http"
 	"time"
 
 	"connectrpc.com/connect"
+	"github.com/google/uuid"
 
 	jennahv1 "github.com/alphauslabs/jennah/gen/proto"
+	jennahv1connect "github.com/alphauslabs/jennah/gen/proto/jennahv1connect"
+	"github.com/alphauslabs/jennah/internal/database"
 	"github.com/alphauslabs/jennah/internal/router"
 )
+
+func (s *GatewayService) resolveTenant(header http.Header) (string, error) {
+	oauthUser, err := extractOAuthUser(header)
+	if err != nil {
+		log.Printf("OAuth authentication failed: %v", err)
+		return "", connect.NewError(connect.CodeUnauthenticated, errors.New("missing or invalid OAuth headers"))
+	}
+
+	tenantId, err := s.getOrCreateTenant(oauthUser)
+	if err != nil {
+		log.Printf("Failed to get or create tenant: %v", err)
+		return "", connect.NewError(connect.CodeInternal, err)
+	}
+
+	return tenantId, nil
+}
+
+func (s *GatewayService) getWorkerClient(routingKey string) (string, jennahv1connect.DeploymentServiceClient, error) {
+	workerIP := s.router.GetWorkerIP(routingKey)
+	if workerIP == "" {
+		log.Printf("No worker found for routingKey: %s", routingKey)
+		return "", nil, connect.NewError(connect.CodeInternal, errors.New("no worker found for routing key"))
+	}
+
+	workerClient, exists := s.workerClients[workerIP]
+	if !exists {
+		log.Printf("No worker client found for IP: %s", workerIP)
+		return "", nil, connect.NewError(connect.CodeInternal, fmt.Errorf("no worker client found for IP: %s", workerIP))
+	}
+
+	return workerIP, workerClient, nil
+}
+
+func dbJobToProto(job *database.Job) *jennahv1.Job {
+	p := &jennahv1.Job{
+		JobId:      job.JobId,
+		TenantId:   job.TenantId,
+		ImageUri:   job.ImageUri,
+		Status:     job.Status,
+		CreatedAt:  job.CreatedAt.Format(time.RFC3339),
+		UpdatedAt:  job.UpdatedAt.Format(time.RFC3339),
+		RetryCount: job.RetryCount,
+		MaxRetries: job.MaxRetries,
+		Commands:   job.Commands,
+	}
+
+	if job.ScheduledAt != nil {
+		p.ScheduledAt = job.ScheduledAt.Format(time.RFC3339)
+	}
+	if job.StartedAt != nil {
+		p.StartedAt = job.StartedAt.Format(time.RFC3339)
+	}
+	if job.CompletedAt != nil {
+		p.CompletedAt = job.CompletedAt.Format(time.RFC3339)
+	}
+	if job.ErrorMessage != nil {
+		p.ErrorMessage = *job.ErrorMessage
+	}
+	if job.GcpBatchJobName != nil {
+		p.GcpBatchJobName = *job.GcpBatchJobName
+	}
+	if job.GcpBatchTaskGroup != nil {
+		p.GcpBatchTaskGroup = *job.GcpBatchTaskGroup
+	}
+	if job.EnvVarsJson != nil {
+		p.EnvVarsJson = *job.EnvVarsJson
+	}
+	if job.Name != nil {
+		p.Name = *job.Name
+	}
+	if job.ResourceProfile != nil {
+		p.ResourceProfile = *job.ResourceProfile
+	}
+	if job.MachineType != nil {
+		p.MachineType = *job.MachineType
+	}
+	if job.BootDiskSizeGb != nil {
+		p.BootDiskSizeGb = *job.BootDiskSizeGb
+	}
+	if job.UseSpotVms != nil {
+		p.UseSpotVms = *job.UseSpotVms
+	}
+	if job.ServiceAccount != nil {
+		p.ServiceAccount = *job.ServiceAccount
+	}
+
+	return p
+}
 
 func (s *GatewayService) GetCurrentTenant(
 	ctx context.Context,
 	req *connect.Request[jennahv1.GetCurrentTenantRequest],
 ) (*connect.Response[jennahv1.GetCurrentTenantResponse], error) {
-	oauthUser, err := extractOAuthUser(req.Header())
+	tenantId, err := s.resolveTenant(req.Header())
 	if err != nil {
-		log.Printf("OAuth extraction failed: %v", err)
-		return nil, connect.NewError(connect.CodeUnauthenticated, errors.New("missing or invalid OAuth headers"))
-	}
-	tenantId, err := s.getOrCreateTenant(oauthUser)
-	if err != nil {
-		log.Printf("Failed to get or create tenant: %v", err)
-		return nil, connect.NewError(connect.CodeInternal, err)
+		return nil, err
 	}
 
 	tenant, err := s.dbClient.GetTenant(ctx, tenantId)
@@ -38,10 +124,10 @@ func (s *GatewayService) GetCurrentTenant(
 		TenantId:      tenant.TenantId,
 		UserEmail:     tenant.UserEmail,
 		OauthProvider: tenant.OAuthProvider,
-		CreatedAt:     tenant.CreatedAt.Format("2006-01-02T15:04:05Z07:00"),
+		CreatedAt:     tenant.CreatedAt.Format(time.RFC3339),
 	})
 
-	log.Printf("Retrieved tenant info for user %s: tenantId=%s", oauthUser.Email, tenantId)
+	log.Printf("Retrieved tenant info for user %s: tenantId=%s", tenant.UserEmail, tenantId)
 	return response, nil
 }
 
@@ -51,59 +137,38 @@ func (s *GatewayService) SubmitJob(
 ) (*connect.Response[jennahv1.SubmitJobResponse], error) {
 	log.Printf("Received job submission")
 
-	oauthUser, err := extractOAuthUser(req.Header())
+	tenantId, err := s.resolveTenant(req.Header())
 	if err != nil {
-		log.Printf("OAuth authentication failed: %v", err)
-		return nil, connect.NewError(connect.CodeUnauthenticated, err)
+		return nil, err
 	}
-
-	tenantId, err := s.getOrCreateTenant(oauthUser)
-	if err != nil {
-		log.Printf("Failed to get or create tenant: %v", err)
-		return nil, connect.NewError(connect.CodeInternal, err)
-	}
-	log.Printf("Job submission from user %s (tenantId=%s)", oauthUser.Email, tenantId)
 
 	if req.Msg.ImageUri == "" {
 		log.Printf("Error: imageUri is empty")
 		return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("imageUri is required"))
 	}
 
-	// Classify the job and decide which GCP service should execute it.
-	// This routing decision is logged now and will drive direct GCP API calls
-	// (Cloud Tasks / Cloud Run Jobs / Cloud Batch) in the next integration phase.
+	gatewayJobID := uuid.NewString()
+	workerIP, workerClient, err := s.getWorkerClient(gatewayJobID)
+	if err != nil {
+		return nil, err
+	}
+	log.Printf("Selected worker: %s for tenant (routing key: %s)", workerIP, gatewayJobID)
+
 	routingDecision := router.EvaluateJobComplexity(req.Msg)
-	log.Printf(
-		"Job routing decision: complexity=%s service=%s reason=%q (tenant=%s)",
-		routingDecision.Complexity,
-		routingDecision.AssignedService,
-		routingDecision.Reason,
-		tenantId,
-	)
-
-	//workerIP := s.router.GetWorkerIP(tenantId)
-
-	//create unique routing key for each job submission to ensure better load distribution across workers
-	routingKey := fmt.Sprintf("%s-%d", tenantId, time.Now().UnixNano())
-	workerIP := s.router.GetWorkerIP(routingKey)
-	if workerIP == "" {
-		log.Printf("No worker found for routingKey: %s", routingKey)
-		return nil, connect.NewError(connect.CodeInternal, errors.New("no worker found for routingKey"))
-	}
-	log.Printf("Selected worker: %s for tenant (routing key: %s)", workerIP, routingKey)
-
-	workerClient, exists := s.workerClients[workerIP]
-	if !exists {
-		log.Printf("No worker client found for IP: %s", workerIP)
-		return nil, connect.NewError(connect.CodeInternal, errors.New("no worker client found for tenantId"))
-	}
+	log.Printf("Routing decision: complexity=%s, service=%s, reason=%s",
+		routingDecision.Complexity, routingDecision.AssignedService, routingDecision.Reason)
 
 	workerReq := connect.NewRequest(&jennahv1.SubmitJobRequest{
+		JobId:            gatewayJobID,
 		ImageUri:         req.Msg.ImageUri,
 		EnvVars:          req.Msg.EnvVars,
 		ResourceProfile:  req.Msg.ResourceProfile,
 		ResourceOverride: req.Msg.ResourceOverride,
+		Name:             req.Msg.Name,
 		MachineType:      req.Msg.MachineType,
+		BootDiskSizeGb:   req.Msg.BootDiskSizeGb,
+		UseSpotVms:       req.Msg.UseSpotVms,
+		ServiceAccount:   req.Msg.ServiceAccount,
 		Commands:         req.Msg.Commands,
 	})
 	workerReq.Header().Set("X-Tenant-Id", tenantId)
@@ -131,41 +196,25 @@ func (s *GatewayService) ListJobs(
 ) (*connect.Response[jennahv1.ListJobsResponse], error) {
 	log.Printf("Received list jobs request")
 
-	oauthUser, err := extractOAuthUser(req.Header())
+	tenantId, err := s.resolveTenant(req.Header())
 	if err != nil {
-		log.Printf("OAuth authentication failed: %v", err)
-		return nil, connect.NewError(connect.CodeUnauthenticated, err)
+		return nil, err
 	}
 
-	tenantId, err := s.getOrCreateTenant(oauthUser)
+	jobs, err := s.dbClient.ListJobs(ctx, tenantId)
 	if err != nil {
-		log.Printf("Failed to get or create tenant: %v", err)
-		return nil, connect.NewError(connect.CodeInternal, err)
-	}
-	log.Printf("List jobs request from user %s (tenantId=%s)", oauthUser.Email, tenantId)
-
-	workerIP := s.router.GetWorkerIP(tenantId)
-	if workerIP == "" {
-		log.Printf("No worker found for tenantId: %s", tenantId)
-		return nil, connect.NewError(connect.CodeInternal, errors.New("no worker found for tenantId"))
+		log.Printf("Failed to list jobs from database for tenant %s: %v", tenantId, err)
+		return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("failed to list jobs: %w", err))
 	}
 
-	workerClient, exists := s.workerClients[workerIP]
-	if !exists {
-		log.Printf("No worker client found for IP: %s", workerIP)
-		return nil, connect.NewError(connect.CodeInternal, errors.New("no worker client found for tenantId"))
+	protoJobs := make([]*jennahv1.Job, 0, len(jobs))
+	for _, job := range jobs {
+		protoJobs = append(protoJobs, dbJobToProto(job))
 	}
 
-	workerReq := connect.NewRequest(&jennahv1.ListJobsRequest{})
-	workerReq.Header().Set("X-Tenant-Id", tenantId)
+	response := connect.NewResponse(&jennahv1.ListJobsResponse{Jobs: protoJobs})
 
-	response, err := workerClient.ListJobs(ctx, workerReq)
-	if err != nil {
-		log.Printf("ERROR: Worker %s ListJobs failed: %v", workerIP, err)
-		return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("worker failed: %w", err))
-	}
-
-	log.Printf("Successfully listed %d jobs for tenant %s via worker %s", len(response.Msg.Jobs), tenantId, workerIP)
+	log.Printf("Successfully listed %d jobs for tenant %s directly from database", len(response.Msg.Jobs), tenantId)
 	return response, nil
 }
 
@@ -175,32 +224,18 @@ func (s *GatewayService) CancelJob(
 ) (*connect.Response[jennahv1.CancelJobResponse], error) {
 	log.Printf("Received cancel job request")
 
-	oauthUser, err := extractOAuthUser(req.Header())
-	if err != nil {
-		log.Printf("OAuth authentication failed: %v", err)
-		return nil, connect.NewError(connect.CodeUnauthenticated, err)
-	}
-
-	tenantId, err := s.getOrCreateTenant(oauthUser)
-	if err != nil {
-		log.Printf("Failed to get or create tenant: %v", err)
-		return nil, connect.NewError(connect.CodeInternal, err)
-	}
-
 	if req.Msg.JobId == "" {
 		return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("job_id is required"))
 	}
 
-	workerIP := s.router.GetWorkerIP(tenantId)
-	if workerIP == "" {
-		log.Printf("No worker found for tenantId: %s", tenantId)
-		return nil, connect.NewError(connect.CodeInternal, errors.New("no worker found for tenantId"))
+	tenantId, err := s.resolveTenant(req.Header())
+	if err != nil {
+		return nil, err
 	}
 
-	workerClient, exists := s.workerClients[workerIP]
-	if !exists {
-		log.Printf("No worker client found for IP: %s", workerIP)
-		return nil, connect.NewError(connect.CodeInternal, errors.New("no worker client found for tenantId"))
+	workerIP, workerClient, err := s.getWorkerClient(req.Msg.JobId)
+	if err != nil {
+		return nil, err
 	}
 
 	workerReq := connect.NewRequest(&jennahv1.CancelJobRequest{JobId: req.Msg.JobId})
@@ -222,32 +257,18 @@ func (s *GatewayService) DeleteJob(
 ) (*connect.Response[jennahv1.DeleteJobResponse], error) {
 	log.Printf("Received delete job request")
 
-	oauthUser, err := extractOAuthUser(req.Header())
-	if err != nil {
-		log.Printf("OAuth authentication failed: %v", err)
-		return nil, connect.NewError(connect.CodeUnauthenticated, err)
-	}
-
-	tenantId, err := s.getOrCreateTenant(oauthUser)
-	if err != nil {
-		log.Printf("Failed to get or create tenant: %v", err)
-		return nil, connect.NewError(connect.CodeInternal, err)
-	}
-
 	if req.Msg.JobId == "" {
 		return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("job_id is required"))
 	}
 
-	workerIP := s.router.GetWorkerIP(tenantId)
-	if workerIP == "" {
-		log.Printf("No worker found for tenantId: %s", tenantId)
-		return nil, connect.NewError(connect.CodeInternal, errors.New("no worker found for tenantId"))
+	tenantId, err := s.resolveTenant(req.Header())
+	if err != nil {
+		return nil, err
 	}
 
-	workerClient, exists := s.workerClients[workerIP]
-	if !exists {
-		log.Printf("No worker client found for IP: %s", workerIP)
-		return nil, connect.NewError(connect.CodeInternal, errors.New("no worker client found for tenantId"))
+	workerIP, workerClient, err := s.getWorkerClient(req.Msg.JobId)
+	if err != nil {
+		return nil, err
 	}
 
 	workerReq := connect.NewRequest(&jennahv1.DeleteJobRequest{JobId: req.Msg.JobId})
@@ -260,5 +281,38 @@ func (s *GatewayService) DeleteJob(
 	}
 
 	log.Printf("Job deleted successfully: jobId=%s, tenantId=%s, worker=%s", req.Msg.JobId, tenantId, workerIP)
+	return response, nil
+}
+
+func (s *GatewayService) GetJob(
+	ctx context.Context,
+	req *connect.Request[jennahv1.GetJobRequest],
+) (*connect.Response[jennahv1.GetJobResponse], error) {
+	log.Printf("Received get job request")
+
+	if req.Msg.JobId == "" {
+		return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("job_id is required"))
+	}
+
+	tenantId, err := s.resolveTenant(req.Header())
+	if err != nil {
+		return nil, err
+	}
+
+	workerIP, workerClient, err := s.getWorkerClient(req.Msg.JobId)
+	if err != nil {
+		return nil, err
+	}
+
+	workerReq := connect.NewRequest(&jennahv1.GetJobRequest{JobId: req.Msg.JobId})
+	workerReq.Header().Set("X-Tenant-Id", tenantId)
+
+	response, err := workerClient.GetJob(ctx, workerReq)
+	if err != nil {
+		log.Printf("ERROR: Worker %s GetJob failed for job %s: %v", workerIP, req.Msg.JobId, err)
+		return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("worker failed: %w", err))
+	}
+
+	log.Printf("Job retrieved successfully: jobId=%s, tenantId=%s, worker=%s", req.Msg.JobId, tenantId, workerIP)
 	return response, nil
 }

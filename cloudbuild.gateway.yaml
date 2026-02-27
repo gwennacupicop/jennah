@@ -1,0 +1,11 @@
+steps:
+  - name: 'gcr.io/cloud-builders/docker'
+    args:
+      - 'build'
+      - '-t'
+      - 'asia-docker.pkg.dev/labs-169405/asia.gcr.io/jennah-gateway:latest'
+      - '-f'
+      - 'Dockerfile.gateway'
+      - '.'
+images:
+  - 'asia-docker.pkg.dev/labs-169405/asia.gcr.io/jennah-gateway:latest'

@@ -46,7 +46,7 @@ func buildJobConfig(
 				MaxRunDurationSeconds: ro.GetMaxRunDurationSeconds(),
 			}
 		}
-		resources = cfg.ResolveResources(req.GetResourceProfile(), override)
+		resources = cfg.ResolveResources(req.GetMachineType(), req.GetResourceProfile(), override)
 	} else {
 		// No config file — fall back to "medium" hard-coded defaults so that
 		// the navigator is always usable in tests and minimal deployments.

@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"log"
+	"sync"
 	"time"
 
 	"github.com/google/uuid"
@@ -22,6 +23,7 @@ type JobPoller struct {
 	dbClient          *database.Client
 	ticker            *time.Ticker
 	done              chan bool
+	stopOnce          sync.Once
 	pollingInterval   time.Duration
 	maxFailedAttempts int
 	failedAttempts    int
@@ -29,6 +31,8 @@ type JobPoller struct {
 
 // startJobPoller spawns a background goroutine to poll the batch provider for job status updates.
 func (s *WorkerService) startJobPoller(ctx context.Context, tenantID, jobID, gcpResourcePath, initialStatus string) {
+	pollerKey := fmt.Sprintf("%s/%s", tenantID, jobID)
+
 	poller := &JobPoller{
 		tenantID:          tenantID,
 		jobID:             jobID,
@@ -47,20 +51,24 @@ func (s *WorkerService) startJobPoller(ctx context.Context, tenantID, jobID, gcp
 	if s.pollers == nil {
 		s.pollers = make(map[string]*JobPoller)
 	}
-	pollerKey := fmt.Sprintf("%s/%s", tenantID, jobID)
+	if _, exists := s.pollers[pollerKey]; exists {
+		s.pollersMutex.Unlock()
+		return
+	}
 	s.pollers[pollerKey] = poller
 	s.pollersMutex.Unlock()
 
 	log.Printf("Starting poller for job %s (tenant: %s)", jobID, tenantID)
 
 	// Start polling in background with a new context (independent of request lifecycle).
-	go poller.poll(context.Background(), s)
+	go poller.poll(context.Background(), s, pollerKey)
 }
 
 // poll continuously checks job status and updates the database when status changes.
-func (poller *JobPoller) poll(ctx context.Context, server *WorkerService) {
+func (poller *JobPoller) poll(ctx context.Context, server *WorkerService, pollerKey string) {
 	ticker := time.NewTicker(poller.pollingInterval)
 	defer ticker.Stop()
+	defer server.unregisterPoller(pollerKey)
 
 	for {
 		select {
@@ -69,6 +77,19 @@ func (poller *JobPoller) poll(ctx context.Context, server *WorkerService) {
 			return
 
 		case <-ticker.C:
+			leaseUntil := time.Now().UTC().Add(server.leaseTTL)
+			owned, err := poller.dbClient.TryClaimOrRenewJobLease(ctx, poller.tenantID, poller.jobID, server.workerID, leaseUntil)
+			if err != nil {
+				log.Printf("Error renewing lease for job %s: %v", poller.jobID, err)
+				continue
+			}
+
+			if !owned {
+				log.Printf("Lease ownership lost for job %s; stopping local poller", poller.jobID)
+				poller.stop()
+				return
+			}
+
 			status, err := poller.batchProvider.GetJobStatus(ctx, poller.gcpResourcePath)
 			if err != nil {
 				poller.failedAttempts++
@@ -102,7 +123,7 @@ func (poller *JobPoller) poll(ctx context.Context, server *WorkerService) {
 
 				// Record state transition in audit trail.
 				transitionID := uuid.New().String()
-				reason := fmt.Sprintf("Status updated from GCP Batch API")
+				reason := "Status updated from GCP Batch API"
 				err = poller.dbClient.RecordStateTransition(ctx, poller.tenantID, poller.jobID, transitionID, &oldStatus, dbStatus, &reason)
 				if err != nil {
 					log.Printf("Error recording state transition: %v", err)
@@ -121,7 +142,9 @@ func (poller *JobPoller) poll(ctx context.Context, server *WorkerService) {
 
 // stop signals the poller to stop polling.
 func (poller *JobPoller) stop() {
-	close(poller.done)
+	poller.stopOnce.Do(func() {
+		close(poller.done)
+	})
 }
 
 // StopAllPollers gracefully stops all active job pollers.
@@ -135,6 +158,12 @@ func (s *WorkerService) StopAllPollers() {
 		poller.stop()
 	}
 	s.pollers = make(map[string]*JobPoller)
+}
+
+func (s *WorkerService) unregisterPoller(pollerKey string) {
+	s.pollersMutex.Lock()
+	defer s.pollersMutex.Unlock()
+	delete(s.pollers, pollerKey)
 }
 
 // stopPollerForJob removes and stops a specific job's poller.
@@ -152,48 +181,68 @@ func (s *WorkerService) stopPollerForJob(tenantID, jobID string) {
 
 // ResumeActiveJobPollers finds all non-terminal jobs across all tenants and restarts their pollers.
 func ResumeActiveJobPollers(ctx context.Context, server *WorkerService, dbClient *database.Client) error {
-	log.Println("Scanning for active jobs to resume polling...")
+	_ = dbClient
+	return server.reconcileActiveJobLeases(ctx, true)
+}
 
-	tenants, err := dbClient.ListTenants(ctx)
+// StartLeaseReconciler continuously claims/renews active job ownership so jobs fail over across workers.
+func (s *WorkerService) StartLeaseReconciler(ctx context.Context) {
+	go func() {
+		if err := s.reconcileActiveJobLeases(ctx, true); err != nil {
+			log.Printf("Initial lease reconcile failed: %v", err)
+		}
+
+		ticker := time.NewTicker(s.claimInterval)
+		defer ticker.Stop()
+
+		for {
+			select {
+			case <-ctx.Done():
+				log.Println("Lease reconciler stopped")
+				return
+			case <-ticker.C:
+				if err := s.reconcileActiveJobLeases(context.Background(), false); err != nil {
+					log.Printf("Lease reconcile tick failed: %v", err)
+				}
+			}
+		}
+	}()
+}
+
+func (s *WorkerService) reconcileActiveJobLeases(ctx context.Context, startup bool) error {
+	if startup {
+		log.Println("Scanning active jobs to claim poller leases...")
+	}
+
+	jobs, err := s.dbClient.ListActiveJobs(ctx)
 	if err != nil {
-		return fmt.Errorf("failed to list tenants: %w", err)
+		return fmt.Errorf("failed to list active jobs: %w", err)
 	}
 
-	if len(tenants) == 0 {
-		log.Println("No tenants found")
-		return nil
-	}
-
-	log.Printf("Found %d tenant(s)", len(tenants))
-
-	resumedCount := 0
-
-	for _, tenant := range tenants {
-		jobs, err := dbClient.ListJobs(ctx, tenant.TenantId)
-		if err != nil {
-			log.Printf("Error listing jobs for tenant %s: %v", tenant.TenantId, err)
+	claimedCount := 0
+	for _, job := range jobs {
+		if job.GcpBatchJobName == nil {
 			continue
 		}
 
-		for _, job := range jobs {
-			// Skip terminal statuses — no need to poll.
-			if isTerminalStatus(job.Status) {
-				continue
-			}
-
-			// Skip jobs without GCP Batch reference.
-			if job.GcpBatchJobName == nil {
-				log.Printf("Skipping poller for job %s: no GCP Batch resource", job.JobId)
-				continue
-			}
-
-			log.Printf("Resuming poller for job %s (status: %s)", job.JobId, job.Status)
-			server.startJobPoller(ctx, tenant.TenantId, job.JobId, *job.GcpBatchJobName, job.Status)
-			resumedCount++
+		owned, err := s.dbClient.TryClaimOrRenewJobLease(ctx, job.TenantId, job.JobId, s.workerID, time.Now().UTC().Add(s.leaseTTL))
+		if err != nil {
+			log.Printf("Lease claim failed for job %s: %v", job.JobId, err)
+			continue
 		}
+
+		if !owned {
+			continue
+		}
+
+		s.startJobPoller(ctx, job.TenantId, job.JobId, *job.GcpBatchJobName, job.Status)
+		claimedCount++
 	}
 
-	log.Printf("Job poller resume complete: %d poller(s) started", resumedCount)
+	if startup {
+		log.Printf("Lease reconcile complete: %d job(s) owned by worker %s", claimedCount, s.workerID)
+	}
+
 	return nil
 }
 

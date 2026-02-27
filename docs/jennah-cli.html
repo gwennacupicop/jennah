@@ -1,0 +1,517 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Jennah CLI — User Guide</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      font-size: 14px;
+      line-height: 1.7;
+      color: #1a1a2e;
+      background: #fff;
+      padding: 48px 64px;
+      max-width: 860px;
+      margin: 0 auto;
+    }
+
+    /* Cover */
+    .cover {
+      text-align: center;
+      padding: 80px 0 60px;
+      border-bottom: 2px solid #e8e8f0;
+      margin-bottom: 48px;
+    }
+    .cover .logo {
+      font-size: 48px;
+      font-weight: 800;
+      color: #4f46e5;
+      letter-spacing: -2px;
+    }
+    .cover .subtitle {
+      font-size: 18px;
+      color: #6b7280;
+      margin-top: 8px;
+    }
+    .cover .version {
+      display: inline-block;
+      margin-top: 20px;
+      padding: 4px 14px;
+      background: #eef2ff;
+      color: #4f46e5;
+      border-radius: 20px;
+      font-size: 12px;
+      font-weight: 600;
+    }
+
+    /* Sections */
+    h1 {
+      font-size: 26px;
+      font-weight: 700;
+      color: #111827;
+      margin: 40px 0 12px;
+      padding-bottom: 8px;
+      border-bottom: 2px solid #e8e8f0;
+    }
+    h2 {
+      font-size: 18px;
+      font-weight: 700;
+      color: #1f2937;
+      margin: 32px 0 8px;
+    }
+    h3 {
+      font-size: 14px;
+      font-weight: 600;
+      color: #4f46e5;
+      margin: 20px 0 6px;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+
+    p { margin-bottom: 12px; }
+
+    /* Code blocks */
+    pre {
+      background: #1e1e2e;
+      color: #cdd6f4;
+      border-radius: 8px;
+      padding: 16px 20px;
+      font-size: 13px;
+      font-family: "Cascadia Code", "Fira Code", "Consolas", monospace;
+      overflow-x: auto;
+      margin: 10px 0 18px;
+      line-height: 1.6;
+    }
+    code {
+      background: #eef2ff;
+      color: #4f46e5;
+      padding: 2px 6px;
+      border-radius: 4px;
+      font-family: "Cascadia Code", "Fira Code", "Consolas", monospace;
+      font-size: 12.5px;
+    }
+    pre code {
+      background: none;
+      color: inherit;
+      padding: 0;
+      font-size: inherit;
+    }
+
+    /* Callout boxes */
+    .callout {
+      border-left: 4px solid #4f46e5;
+      background: #eef2ff;
+      padding: 12px 16px;
+      border-radius: 0 8px 8px 0;
+      margin: 14px 0;
+      font-size: 13px;
+    }
+    .callout.warning {
+      border-color: #f59e0b;
+      background: #fffbeb;
+    }
+    .callout.success {
+      border-color: #10b981;
+      background: #ecfdf5;
+    }
+    .callout strong { display: block; margin-bottom: 4px; }
+
+    /* Tables */
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin: 12px 0 20px;
+      font-size: 13px;
+    }
+    th {
+      background: #f3f4f6;
+      text-align: left;
+      padding: 8px 12px;
+      font-weight: 600;
+      color: #374151;
+      border-bottom: 2px solid #e5e7eb;
+    }
+    td {
+      padding: 8px 12px;
+      border-bottom: 1px solid #e5e7eb;
+      vertical-align: top;
+    }
+    tr:last-child td { border-bottom: none; }
+    td code { font-size: 12px; }
+
+    /* Step badge */
+    .step {
+      display: flex;
+      align-items: flex-start;
+      gap: 14px;
+      margin: 18px 0;
+    }
+    .step-num {
+      min-width: 28px;
+      height: 28px;
+      background: #4f46e5;
+      color: white;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: 700;
+      font-size: 13px;
+      flex-shrink: 0;
+      margin-top: 2px;
+    }
+    .step-body { flex: 1; }
+    .step-body p { margin-bottom: 6px; }
+
+    /* Command reference card */
+    .cmd-card {
+      border: 1px solid #e5e7eb;
+      border-radius: 10px;
+      padding: 16px 20px;
+      margin: 14px 0;
+      background: #fafafa;
+    }
+    .cmd-card .cmd-title {
+      font-weight: 700;
+      font-size: 15px;
+      color: #111827;
+      margin-bottom: 4px;
+    }
+    .cmd-card .cmd-desc {
+      color: #6b7280;
+      font-size: 13px;
+      margin-bottom: 10px;
+    }
+
+    /* TOC */
+    .toc {
+      background: #f9fafb;
+      border: 1px solid #e5e7eb;
+      border-radius: 10px;
+      padding: 20px 24px;
+      margin-bottom: 40px;
+    }
+    .toc h2 { margin-top: 0; font-size: 15px; color: #374151; }
+    .toc ol { padding-left: 20px; }
+    .toc li { margin: 4px 0; color: #4f46e5; font-size: 13px; }
+
+    /* Status badges */
+    .badge {
+      display: inline-block;
+      padding: 2px 8px;
+      border-radius: 12px;
+      font-size: 11px;
+      font-weight: 600;
+      margin: 1px;
+    }
+    .badge.pending   { background: #fef3c7; color: #92400e; }
+    .badge.scheduled { background: #dbeafe; color: #1e40af; }
+    .badge.running   { background: #d1fae5; color: #065f46; }
+    .badge.completed { background: #dcfce7; color: #14532d; }
+    .badge.failed    { background: #fee2e2; color: #991b1b; }
+    .badge.cancelled { background: #f3f4f6; color: #374151; }
+
+    /* Print */
+    @media print {
+      body { padding: 20px 30px; }
+      .cover { padding: 40px 0 30px; }
+      pre { background: #f8f8f8 !important; color: #1a1a2e !important; border: 1px solid #ddd; }
+      pre code { color: #1a1a2e !important; }
+    }
+
+    .divider {
+      border: none;
+      border-top: 1px solid #e8e8f0;
+      margin: 36px 0;
+    }
+  </style>
+</head>
+<body>
+
+<!-- Cover -->
+<div class="cover">
+  <div class="logo">jennah</div>
+  <div class="subtitle">Command-Line Interface — User Guide</div>
+  <span class="version">v1.0 · February 2026</span>
+</div>
+
+<!-- TOC -->
+<div class="toc">
+  <h2>Table of Contents</h2>
+  <ol>
+    <li>What is Jennah CLI?</li>
+    <li>Prerequisites & Setup</li>
+    <li>Quick Start (First Time)</li>
+    <li>Tenant Commands</li>
+    <li>Job Commands</li>
+    <li>Job Status Reference</li>
+    <li>Full Workflow Example</li>
+    <li>Tips & Troubleshooting</li>
+  </ol>
+</div>
+
+<!-- 1 -->
+<h1>1 · What is Jennah CLI?</h1>
+<p>
+  <strong>jennah</strong> is a command-line tool for managing workload deployment jobs on the Jennah platform.
+  You can create tenants, submit jobs, check their status, update them, and delete them — all from your terminal.
+</p>
+<p>Think of a <strong>tenant</strong> as a user or team account, and a <strong>job</strong> as a task or workload that belongs to that tenant.</p>
+
+<hr class="divider" />
+
+<!-- 2 -->
+<h1>2 · Prerequisites & Setup</h1>
+
+<h2>What you need</h2>
+<table>
+  <tr><th>Requirement</th><th>Notes</th></tr>
+  <tr><td>Google Cloud credentials</td><td>Run <code>gcloud auth application-default login</code> once, or set <code>GOOGLE_APPLICATION_CREDENTIALS</code></td></tr>
+  <tr><td>Environment variables</td><td>See below — must be set in every terminal session</td></tr>
+  <tr><td>jennah.exe</td><td>Built from source or provided as a binary</td></tr>
+</table>
+
+<h2>Setting environment variables</h2>
+<p>Run these once in each terminal session before using the CLI:</p>
+<pre>$env:JENNAH_PROJECT  = "labs-169405"
+$env:JENNAH_INSTANCE = "alphaus-dev"
+$env:JENNAH_DATABASE = "main"</pre>
+
+<div class="callout">
+  <strong>💡 Tip — Make it permanent</strong>
+  Add these lines to your PowerShell profile (<code>$PROFILE</code>) so you don't have to type them every time.
+</div>
+
+<hr class="divider" />
+
+<!-- 3 -->
+<h1>3 · Quick Start (First Time)</h1>
+
+<div class="step">
+  <div class="step-num">1</div>
+  <div class="step-body">
+    <p><strong>Set your environment variables</strong> (see Section 2 above).</p>
+  </div>
+</div>
+
+<div class="step">
+  <div class="step-num">2</div>
+  <div class="step-body">
+    <p><strong>Create a tenant</strong> for yourself:</p>
+    <pre>.\jennah tenant create --name gwenn --email gwenn@example.com</pre>
+    <p>You'll see a confirmation with your auto-generated Tenant ID — copy it.</p>
+  </div>
+</div>
+
+<div class="step">
+  <div class="step-num">3</div>
+  <div class="step-body">
+    <p><strong>Submit your first job:</strong></p>
+    <pre>.\jennah submit --tenant-id &lt;your-tenant-id&gt;</pre>
+  </div>
+</div>
+
+<div class="step">
+  <div class="step-num">4</div>
+  <div class="step-body">
+    <p><strong>List your jobs</strong> to see it:</p>
+    <pre>.\jennah list --tenant-id &lt;your-tenant-id&gt;</pre>
+  </div>
+</div>
+
+<hr class="divider" />
+
+<!-- 4 -->
+<h1>4 · Tenant Commands</h1>
+<p>Tenants must be created before jobs can be submitted. Each tenant has a name, an email, and an auto-generated UUID as its ID.</p>
+
+<div class="cmd-card">
+  <div class="cmd-title">Create a tenant</div>
+  <div class="cmd-desc">Registers a new tenant. The Tenant ID is generated automatically.</div>
+  <pre>.\jennah tenant create --name &lt;name&gt; --email &lt;email&gt;</pre>
+  <h3>Example</h3>
+  <pre>.\jennah tenant create --name gwenn --email gwenn@example.com</pre>
+  <h3>Output</h3>
+  <pre>✓ Tenant created
+  Name:      gwenn
+  Email:     gwenn@example.com
+  Tenant ID: 4a3f92bc-1234-...</pre>
+</div>
+
+<div class="cmd-card">
+  <div class="cmd-title">List all tenants</div>
+  <div class="cmd-desc">Shows all tenants with their name, email, Tenant ID, and creation date.</div>
+  <pre>.\jennah tenant list</pre>
+  <h3>Output</h3>
+  <pre>NAME                  EMAIL                           TENANT ID                             CREATED
+────────────────────────────────────────────────────────────────────────────────────────────────
+gwenn                 gwenn@example.com               4a3f92bc-1234-...                     2026-02-20 09:00:00</pre>
+</div>
+
+<div class="cmd-card">
+  <div class="cmd-title">Delete a tenant</div>
+  <div class="cmd-desc">Permanently deletes a tenant and <strong>all of its jobs</strong>. This cannot be undone.</div>
+  <pre>.\jennah tenant delete --tenant-id &lt;tenant-id&gt;</pre>
+  <h3>Example</h3>
+  <pre>.\jennah tenant delete --tenant-id 4a3f92bc-1234-...</pre>
+  <div class="callout warning">
+    <strong>⚠️ Warning</strong>
+    Deleting a tenant removes all its jobs permanently due to cascade delete.
+    Run <code>jennah list</code> first to confirm before deleting.
+  </div>
+</div>
+
+<hr class="divider" />
+
+<!-- 5 -->
+<h1>5 · Job Commands</h1>
+<p>All job commands require <code>--tenant-id</code>. Get your tenant ID by running <code>jennah tenant list</code>.</p>
+
+<div class="cmd-card">
+  <div class="cmd-title">Submit a job</div>
+  <div class="cmd-desc">Creates a new job under the given tenant. Returns a Job ID.</div>
+  <pre>.\jennah submit --tenant-id &lt;id&gt; [--status &lt;status&gt;]</pre>
+  <h3>Flags</h3>
+  <table>
+    <tr><th>Flag</th><th>Required</th><th>Default</th><th>Description</th></tr>
+    <tr><td><code>--tenant-id</code></td><td>Yes</td><td>—</td><td>The tenant that owns the job</td></tr>
+    <tr><td><code>--status</code></td><td>No</td><td>PENDING</td><td>Initial status of the job</td></tr>
+  </table>
+  <h3>Examples</h3>
+  <pre>.\jennah submit --tenant-id 4a3f92bc-...
+.\jennah submit --tenant-id 4a3f92bc-... --status RUNNING</pre>
+  <h3>Output</h3>
+  <pre>✓ Job submitted successfully
+  Job ID:  16f2379d-746b-4e50-986b-f8cb7f1d3ab6
+  Status:  PENDING
+  Tenant:  4a3f92bc-...</pre>
+</div>
+
+<div class="cmd-card">
+  <div class="cmd-title">List jobs</div>
+  <div class="cmd-desc">Lists all jobs for a tenant. Optionally filter by status.</div>
+  <pre>.\jennah list --tenant-id &lt;id&gt; [--status &lt;status&gt;]</pre>
+  <h3>Examples</h3>
+  <pre>.\jennah list --tenant-id 4a3f92bc-...
+.\jennah list --tenant-id 4a3f92bc-... --status RUNNING</pre>
+</div>
+
+<div class="cmd-card">
+  <div class="cmd-title">Get job details</div>
+  <div class="cmd-desc">Shows full details for a single job. Use <code>--history</code> to see state transition history.</div>
+  <pre>.\jennah get &lt;job-id&gt; --tenant-id &lt;id&gt; [--history]</pre>
+  <h3>Example</h3>
+  <pre>.\jennah get 16f2379d-746b-4e50-986b-f8cb7f1d3ab6 --tenant-id 4a3f92bc-...</pre>
+</div>
+
+<div class="cmd-card">
+  <div class="cmd-title">Update a job's status</div>
+  <div class="cmd-desc">Changes the status of an existing job.</div>
+  <pre>.\jennah update &lt;job-id&gt; --status &lt;status&gt; --tenant-id &lt;id&gt;</pre>
+  <h3>Example</h3>
+  <pre>.\jennah update 16f2379d-... --status COMPLETED --tenant-id 4a3f92bc-...</pre>
+</div>
+
+<div class="cmd-card">
+  <div class="cmd-title">Delete a job</div>
+  <div class="cmd-desc">Permanently removes a job.</div>
+  <pre>.\jennah delete &lt;job-id&gt; --tenant-id &lt;id&gt;</pre>
+  <h3>Example</h3>
+  <pre>.\jennah delete 16f2379d-... --tenant-id 4a3f92bc-...</pre>
+</div>
+
+<hr class="divider" />
+
+<!-- 6 -->
+<h1>6 · Job Status Reference</h1>
+<table>
+  <tr><th>Status</th><th>Meaning</th></tr>
+  <tr><td><span class="badge pending">PENDING</span></td><td>Job accepted, not yet submitted to the cloud</td></tr>
+  <tr><td><span class="badge scheduled">SCHEDULED</span></td><td>Cloud resources are being allocated</td></tr>
+  <tr><td><span class="badge running">RUNNING</span></td><td>Container is actively executing</td></tr>
+  <tr><td><span class="badge completed">COMPLETED</span></td><td>Job finished successfully</td></tr>
+  <tr><td><span class="badge failed">FAILED</span></td><td>Job encountered an error</td></tr>
+  <tr><td><span class="badge cancelled">CANCELLED</span></td><td>Job was cancelled before completion</td></tr>
+</table>
+
+<hr class="divider" />
+
+<!-- 7 -->
+<h1>7 · Full Workflow Example</h1>
+<p>Here is a complete example from first setup to deleting a job.</p>
+
+<pre># 1. Set environment variables
+$env:JENNAH_PROJECT  = "labs-169405"
+$env:JENNAH_INSTANCE = "alphaus-dev"
+$env:JENNAH_DATABASE = "main"
+
+# 2. Create a tenant
+.\jennah tenant create --name gwenn --email gwenn@example.com
+#    → copy the Tenant ID from output, e.g. 4a3f92bc-...
+
+# 3. Submit a job
+.\jennah submit --tenant-id 4a3f92bc-...
+#    → copy the Job ID from output, e.g. 16f2379d-...
+
+# 4. List all jobs
+.\jennah list --tenant-id 4a3f92bc-...
+
+# 5. Get details of a specific job
+.\jennah get 16f2379d-... --tenant-id 4a3f92bc-...
+
+# 6. Update its status
+.\jennah update 16f2379d-... --status COMPLETED --tenant-id 4a3f92bc-...
+
+# 7. Confirm the update
+.\jennah get 16f2379d-... --tenant-id 4a3f92bc-...
+
+# 8. Delete the job
+.\jennah delete 16f2379d-... --tenant-id 4a3f92bc-...</pre>
+
+<hr class="divider" />
+
+<!-- 8 -->
+<h1>8 · Tips & Troubleshooting</h1>
+
+<h2>Common errors</h2>
+<table>
+  <tr><th>Error</th><th>Cause</th><th>Fix</th></tr>
+  <tr>
+    <td><code>Spanner project required</code></td>
+    <td>Environment variables not set</td>
+    <td>Set <code>JENNAH_PROJECT</code>, <code>JENNAH_INSTANCE</code>, <code>JENNAH_DATABASE</code></td>
+  </tr>
+  <tr>
+    <td><code>tenant "X" not found</code></td>
+    <td>Tenant doesn't exist yet</td>
+    <td>Run <code>jennah tenant create</code> first</td>
+  </tr>
+  <tr>
+    <td><code>unauthenticated</code></td>
+    <td>No Google Cloud credentials</td>
+    <td>Run <code>gcloud auth application-default login</code></td>
+  </tr>
+  <tr>
+    <td><code>job not found</code></td>
+    <td>Wrong Job ID or wrong Tenant ID</td>
+    <td>Run <code>jennah list --tenant-id &lt;id&gt;</code> to verify both</td>
+  </tr>
+</table>
+
+<h2>Getting help</h2>
+<p>Every command has a built-in help flag:</p>
+<pre>.\jennah --help
+.\jennah submit --help
+.\jennah tenant --help
+.\jennah tenant create --help</pre>
+
+<div class="callout success">
+  <strong>✓ To save this as PDF</strong>
+  Open this file in your browser → press <strong>Ctrl+P</strong> → change destination to <strong>"Save as PDF"</strong> → click Save.
+</div>
+
+</body>
+</html>

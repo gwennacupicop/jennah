@@ -1,0 +1,414 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Jennah CLI Tutorial</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      background: #f5f7fa;
+      color: #1a1a2e;
+      padding: 40px 20px;
+      line-height: 1.7;
+    }
+
+    .container {
+      max-width: 860px;
+      margin: 0 auto;
+      background: #fff;
+      border-radius: 12px;
+      box-shadow: 0 4px 24px rgba(0,0,0,0.08);
+      overflow: hidden;
+    }
+
+    .header {
+      background: linear-gradient(135deg, #1a1a2e 0%, #16213e 60%, #0f3460 100%);
+      color: #fff;
+      padding: 48px 48px 36px;
+    }
+
+    .header h1 {
+      font-size: 2.2rem;
+      font-weight: 700;
+      letter-spacing: -0.5px;
+    }
+
+    .header p {
+      margin-top: 10px;
+      color: #a0aec0;
+      font-size: 1rem;
+    }
+
+    .badge {
+      display: inline-block;
+      background: #e94560;
+      color: #fff;
+      font-size: 0.72rem;
+      font-weight: 600;
+      padding: 3px 10px;
+      border-radius: 999px;
+      margin-top: 14px;
+      letter-spacing: 0.5px;
+      text-transform: uppercase;
+    }
+
+    .content {
+      padding: 40px 48px;
+    }
+
+    h2 {
+      font-size: 1.3rem;
+      font-weight: 700;
+      color: #0f3460;
+      margin: 36px 0 12px;
+      padding-bottom: 6px;
+      border-bottom: 2px solid #e2e8f0;
+    }
+
+    h3 {
+      font-size: 1.05rem;
+      font-weight: 600;
+      color: #1a1a2e;
+      margin: 24px 0 8px;
+    }
+
+    p { margin: 8px 0; color: #4a5568; }
+
+    a { color: #0f3460; }
+
+    ul, ol {
+      margin: 10px 0 10px 24px;
+      color: #4a5568;
+    }
+
+    li { margin: 4px 0; }
+
+    pre {
+      background: #1a1a2e;
+      color: #e2e8f0;
+      border-radius: 8px;
+      padding: 18px 20px;
+      font-family: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace;
+      font-size: 0.85rem;
+      overflow-x: auto;
+      margin: 12px 0;
+      line-height: 1.6;
+    }
+
+    code {
+      background: #edf2f7;
+      color: #c7254e;
+      padding: 2px 6px;
+      border-radius: 4px;
+      font-family: "SFMono-Regular", Consolas, monospace;
+      font-size: 0.85em;
+    }
+
+    pre code {
+      background: none;
+      color: inherit;
+      padding: 0;
+      font-size: inherit;
+    }
+
+    .comment { color: #718096; }
+    .cmd { color: #68d391; }
+    .flag { color: #76e4f7; }
+    .string { color: #fbd38d; }
+    .key { color: #90cdf4; }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin: 14px 0;
+      font-size: 0.9rem;
+    }
+
+    th {
+      background: #edf2f7;
+      text-align: left;
+      padding: 10px 14px;
+      font-weight: 600;
+      color: #2d3748;
+      border-bottom: 2px solid #cbd5e0;
+    }
+
+    td {
+      padding: 9px 14px;
+      border-bottom: 1px solid #e2e8f0;
+      color: #4a5568;
+      vertical-align: top;
+    }
+
+    tr:last-child td { border-bottom: none; }
+
+    .step {
+      display: flex;
+      gap: 16px;
+      margin: 16px 0;
+      align-items: flex-start;
+    }
+
+    .step-num {
+      background: #0f3460;
+      color: #fff;
+      font-weight: 700;
+      font-size: 0.85rem;
+      min-width: 28px;
+      height: 28px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin-top: 2px;
+    }
+
+    .step-body { flex: 1; }
+
+    .flow {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      align-items: center;
+      margin: 16px 0;
+    }
+
+    .flow-box {
+      background: #0f3460;
+      color: #fff;
+      padding: 6px 16px;
+      border-radius: 6px;
+      font-size: 0.85rem;
+      font-weight: 600;
+    }
+
+    .flow-arrow { color: #a0aec0; font-size: 1.1rem; }
+
+    .flow-branch {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+
+    .flow-box.success { background: #276749; }
+    .flow-box.fail    { background: #9b2c2c; }
+    .flow-box.cancel  { background: #744210; }
+
+    .note {
+      background: #ebf8ff;
+      border-left: 4px solid #3182ce;
+      padding: 12px 16px;
+      border-radius: 0 8px 8px 0;
+      margin: 14px 0;
+      font-size: 0.9rem;
+      color: #2c5282;
+    }
+
+    .footer {
+      background: #f7fafc;
+      border-top: 1px solid #e2e8f0;
+      padding: 20px 48px;
+      font-size: 0.82rem;
+      color: #a0aec0;
+      text-align: center;
+    }
+  </style>
+</head>
+<body>
+<div class="container">
+
+  <div class="header">
+    <h1>Jennah CLI</h1>
+    <p>A command-line interface for submitting and managing batch jobs on the Jennah platform.</p>
+    <span class="badge">Tutorial</span>
+  </div>
+
+  <div class="content">
+
+    <!-- Prerequisites -->
+    <h2>Prerequisites</h2>
+    <ul>
+      <li>Go 1.22+</li>
+      <li>A Jennah account (email + Google OAuth user ID)</li>
+      <li>Access to the Jennah Gateway URL</li>
+    </ul>
+
+    <!-- Build -->
+    <h2>Build</h2>
+    <pre><span class="comment"># From the repo root</span>
+<span class="cmd">cd</span> cmd/cli
+<span class="cmd">go build</span> -o jennah .
+
+<span class="comment"># Optional: install system-wide</span>
+<span class="cmd">sudo cp</span> jennah /usr/local/bin/jennah</pre>
+
+    <!-- Getting Started -->
+    <h2>Getting Started</h2>
+
+    <div class="step">
+      <div class="step-num">1</div>
+      <div class="step-body">
+        <h3>Log in</h3>
+        <pre><span class="cmd">./jennah login</span></pre>
+        <p>You will be prompted for your <strong>User ID</strong> and <strong>email</strong>. Credentials (including your Tenant ID) are saved to <code>~/.config/jennah/config.json</code>.</p>
+        <ul>
+          <li>New users will be asked to confirm registration.</li>
+          <li>Already logged-in users will see a block message.</li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="step">
+      <div class="step-num">2</div>
+      <div class="step-body">
+        <h3>Verify login</h3>
+        <pre><span class="cmd">./jennah list</span></pre>
+        <p>If credentials are valid you'll see your jobs (or an empty list).</p>
+      </div>
+    </div>
+
+    <div class="step">
+      <div class="step-num">3</div>
+      <div class="step-body">
+        <h3>Log out</h3>
+        <pre><span class="cmd">./jennah logout</span></pre>
+        <p>Removes your locally saved credentials.</p>
+      </div>
+    </div>
+
+    <!-- Commands -->
+    <h2>Commands</h2>
+
+    <!-- submit -->
+    <h3>submit</h3>
+    <p>Submit a batch job from a JSON file.</p>
+    <pre><span class="cmd">./jennah submit</span> job.json
+
+<span class="comment"># Stream status until job completes</span>
+<span class="cmd">./jennah submit</span> job.json <span class="flag">--wait</span></pre>
+
+    <p><strong>Sample <code>job.json</code>:</strong></p>
+    <pre>{
+  <span class="key">"image_uri"</span>:        <span class="string">"docker.io/ubuntu:22.04"</span>,
+  <span class="key">"resource_profile"</span>: <span class="string">"default"</span>,
+  <span class="key">"commands"</span>: [<span class="string">"/bin/bash"</span>, <span class="string">"-c"</span>, <span class="string">"echo Job started at $(date) &amp;&amp; sleep 10 &amp;&amp; echo Job finished at $(date)"</span>],
+  <span class="key">"env_vars"</span>: {
+    <span class="key">"TEST_ENV"</span>: <span class="string">"production"</span>,
+    <span class="key">"APP_NAME"</span>: <span class="string">"hello-world"</span>
+  }
+}</pre>
+
+    <table>
+      <thead><tr><th>Field</th><th>Description</th></tr></thead>
+      <tbody>
+        <tr><td><code>image_uri</code></td><td>Container image to run (must be accessible to GCP Batch)</td></tr>
+        <tr><td><code>resource_profile</code></td><td>Named resource preset: <code>small</code>, <code>medium</code>, <code>large</code>, <code>default</code></td></tr>
+        <tr><td><code>commands</code></td><td>Entrypoint command and arguments passed to the container</td></tr>
+        <tr><td><code>env_vars</code></td><td>Key-value environment variables passed to the container</td></tr>
+      </tbody>
+    </table>
+
+    <p><strong>Example output:</strong></p>
+    <pre>Gateway URL:      https://jennah-gateway-...run.app
+User ID:          gwenn_acupicop
+Tenant ID:        9580232c-1a00-4f0e-b2ea-86ec0f7adeaf
+Resource Profile: default
+
+Request Payload:
+{
+  "commands": ["/bin/bash", "-c", "echo Job started at $(date) ..."],
+  "envVars": { "APP_NAME": "hello-world", "TEST_ENV": "production" },
+  "imageUri": "docker.io/ubuntu:22.04",
+  "resourceProfile": "default"
+}
+
+Submitting job...
+HTTP Status: 200
+
+Response:
+{
+  "jobId": "9e32129f-d14b-43ad-b655-7769d7c4d398",
+  "status": "PENDING",
+  "workerAssigned": "10.146.0.26"
+}
+
+✅ Job submitted successfully!
+Job ID: 9e32129f-d14b-43ad-b655-7769d7c4d398
+
+Done!</pre>
+
+    <p><strong>With <code>--wait</code>:</strong></p>
+    <pre>Streaming status...
+============================================
+  [13:10:06]  PENDING
+  [13:10:11]  PENDING → SCHEDULED
+  [13:10:21]  SCHEDULED → RUNNING
+  [13:10:57]  RUNNING → SUCCEEDED
+============================================
+Done!</pre>
+
+    <!-- list -->
+    <h3>list</h3>
+    <p>List all jobs under your account.</p>
+    <pre><span class="cmd">./jennah list</span></pre>
+
+    <!-- get -->
+    <h3>get</h3>
+    <p>Get details of a specific job.</p>
+    <pre><span class="cmd">./jennah get</span> &lt;job-id&gt;
+
+<span class="comment"># Output as JSON</span>
+<span class="cmd">./jennah get</span> &lt;job-id&gt; <span class="flag">--output json</span></pre>
+
+    <!-- delete -->
+    <h3>delete</h3>
+    <p>Delete a specific job by ID, or all jobs at once.</p>
+    <pre><span class="cmd">./jennah delete</span> &lt;job-id&gt;
+
+<span class="comment"># Delete all jobs</span>
+<span class="cmd">./jennah delete</span> <span class="flag">--all</span></pre>
+
+    <!-- Status Flow -->
+    <h2>Job Status Flow</h2>
+    <div class="flow">
+      <div class="flow-box">PENDING</div>
+      <span class="flow-arrow">→</span>
+      <div class="flow-box">SCHEDULED</div>
+      <span class="flow-arrow">→</span>
+      <div class="flow-box">RUNNING</div>
+      <span class="flow-arrow">→</span>
+      <div class="flow-branch">
+        <div class="flow-box success">SUCCEEDED</div>
+        <div class="flow-box fail">FAILED</div>
+        <div class="flow-box cancel">CANCELLED</div>
+      </div>
+    </div>
+
+    <!-- Config -->
+    <h2>Configuration</h2>
+    <p>Credentials are stored at:</p>
+    <pre>~/.config/jennah/config.json</pre>
+    <pre>{
+  <span class="key">"email"</span>:     <span class="string">"you@example.com"</span>,
+  <span class="key">"user_id"</span>:   <span class="string">"your_user_id"</span>,
+  <span class="key">"tenant_id"</span>: <span class="string">"uuid-..."</span>,
+  <span class="key">"provider"</span>:  <span class="string">"google"</span>
+}</pre>
+
+    <div class="note">
+      You can also override credentials with environment variables:<br>
+      <code>JENNAH_GATEWAY</code>, <code>JENNAH_EMAIL</code>, <code>JENNAH_USER_ID</code>, <code>JENNAH_PROVIDER</code>
+    </div>
+
+  </div>
+
+  <div class="footer">
+    Jennah CLI &nbsp;·&nbsp; alphauslabs/jennah &nbsp;·&nbsp; February 2026
+  </div>
+
+</div>
+</body>
+</html>

@@ -49,12 +49,24 @@ func NewGCPBatchProvider(ctx context.Context, config batchpkg.ProviderConfig) (b
 func (p *GCPBatchProvider) SubmitJob(ctx context.Context, config batchpkg.JobConfig) (*batchpkg.JobResult, error) {
 	parent := fmt.Sprintf("projects/%s/locations/%s", p.projectID, p.region)
 
-	// Create runnable with container configuration
+	// Create container runnable with image and optional overrides
+	container := &batchpb.Runnable_Container{
+		ImageUri: config.ImageURI,
+	}
+
+	// Add commands if provided
+	if len(config.Commands) > 0 {
+		container.Commands = config.Commands
+	}
+
+	// Add entrypoint if provided
+	if config.ContainerEntrypoint != "" {
+		container.Entrypoint = config.ContainerEntrypoint
+	}
+
 	runnable := &batchpb.Runnable{
 		Executable: &batchpb.Runnable_Container_{
-			Container: &batchpb.Runnable_Container{
-				ImageUri: config.ImageURI,
-			},
+			Container: container,
 		},
 	}
 
@@ -70,37 +82,187 @@ func (p *GCPBatchProvider) SubmitJob(ctx context.Context, config batchpkg.JobCon
 		Runnables: []*batchpb.Runnable{runnable},
 	}
 
-	// Add resource requirements if specified
-	if config.Resources != nil {
-		taskSpec.ComputeResource = &batchpb.ComputeResource{
-			CpuMilli:  config.Resources.CPUMillis,
-			MemoryMib: config.Resources.MemoryMiB,
+	// Configure compute resources
+	if config.Resources != nil || config.BootDiskSizeGb > 0 {
+		computeResource := &batchpb.ComputeResource{}
+
+		if config.Resources != nil {
+			computeResource.CpuMilli = config.Resources.CPUMillis
+			computeResource.MemoryMib = config.Resources.MemoryMiB
 		}
-		if config.Resources.MaxRunDurationSeconds > 0 {
-			taskSpec.MaxRunDuration = durationpb.New(
-				time.Duration(config.Resources.MaxRunDurationSeconds) * time.Second,
-			)
+
+		// Convert boot disk size from GB to MiB (1 GB = 1024 MiB)
+		if config.BootDiskSizeGb > 0 {
+			computeResource.BootDiskMib = config.BootDiskSizeGb * 1024
+		}
+
+		taskSpec.ComputeResource = computeResource
+	}
+
+	// Set max run duration if specified
+	if config.Resources != nil && config.Resources.MaxRunDurationSeconds > 0 {
+		taskSpec.MaxRunDuration = durationpb.New(
+			time.Duration(config.Resources.MaxRunDurationSeconds) * time.Second,
+		)
+	}
+
+	// Set task retry count if specified
+	if config.MaxRetryCount > 0 {
+		taskSpec.MaxRetryCount = config.MaxRetryCount
+	}
+
+	// Determine task count from TaskGroup or default to 1
+	taskCount := int64(1)
+	if config.TaskGroup != nil && config.TaskGroup.TaskCount > 0 {
+		taskCount = config.TaskGroup.TaskCount
+	}
+
+	// Create task group with configuration
+	taskGroup := &batchpb.TaskGroup{
+		TaskSpec:  taskSpec,
+		TaskCount: taskCount,
+	}
+
+	// Configure task group options if provided
+	if config.TaskGroup != nil {
+		if config.TaskGroup.Parallelism > 0 {
+			taskGroup.Parallelism = config.TaskGroup.Parallelism
+		}
+
+		if config.TaskGroup.SchedulingPolicy != "" {
+			switch config.TaskGroup.SchedulingPolicy {
+			case "IN_ORDER":
+				taskGroup.SchedulingPolicy = batchpb.TaskGroup_IN_ORDER
+			default:
+				taskGroup.SchedulingPolicy = batchpb.TaskGroup_AS_SOON_AS_POSSIBLE
+			}
+		}
+
+		if config.TaskGroup.TaskCountPerNode > 0 {
+			taskGroup.TaskCountPerNode = config.TaskGroup.TaskCountPerNode
+		}
+
+		if config.TaskGroup.RequireHostsFile {
+			taskGroup.RequireHostsFile = true
+		}
+
+		if config.TaskGroup.PermissiveSsh {
+			taskGroup.PermissiveSsh = true
+		}
+
+		if config.TaskGroup.RunAsNonRoot {
+			taskGroup.RunAsNonRoot = true
 		}
 	}
 
-	// Create job with task group
-	job := &batchpb.Job{
-		TaskGroups: []*batchpb.TaskGroup{
+	// Build instance policy
+	instancePolicy := &batchpb.AllocationPolicy_InstancePolicy{}
+
+	// Set machine type if provided
+	if config.MachineType != "" {
+		instancePolicy.MachineType = config.MachineType
+	}
+
+	// Set provisioning model based on UseSpotVMs
+	if config.UseSpotVMs {
+		instancePolicy.ProvisioningModel = batchpb.AllocationPolicy_SPOT
+	} else {
+		instancePolicy.ProvisioningModel = batchpb.AllocationPolicy_STANDARD
+	}
+
+	// Set minimum CPU platform if provided
+	if config.MinCpuPlatform != "" {
+		instancePolicy.MinCpuPlatform = config.MinCpuPlatform
+	}
+
+	// Configure boot disk if size is specified
+	if config.BootDiskSizeGb > 0 {
+		instancePolicy.BootDisk = &batchpb.AllocationPolicy_Disk{
+			Type:   "pd-standard",
+			SizeGb: config.BootDiskSizeGb,
+		}
+	}
+
+	// Add accelerators if specified
+	if config.Accelerators != nil && config.Accelerators.Type != "" {
+		instancePolicy.Accelerators = []*batchpb.AllocationPolicy_Accelerator{
 			{
-				TaskSpec:  taskSpec,
-				TaskCount: 1,
+				Type:  config.Accelerators.Type,
+				Count: config.Accelerators.Count,
 			},
+		}
+	}
+
+	// Create instance policy or template for allocation policy
+	instancePolicyOrTemplate := &batchpb.AllocationPolicy_InstancePolicyOrTemplate{
+		PolicyTemplate: &batchpb.AllocationPolicy_InstancePolicyOrTemplate_Policy{
+			Policy: instancePolicy,
 		},
+		InstallGpuDrivers:   config.InstallGpuDrivers,
+		InstallOpsAgent:     config.InstallOpsAgent,
+		BlockProjectSshKeys: config.BlockProjectSshKeys,
+	}
+
+	// Build allocation policy
+	allocationPolicy := &batchpb.AllocationPolicy{
+		Instances: []*batchpb.AllocationPolicy_InstancePolicyOrTemplate{
+			instancePolicyOrTemplate,
+		},
+	}
+
+	// Configure service account if provided
+	if config.ServiceAccount != "" {
+		allocationPolicy.ServiceAccount = &batchpb.ServiceAccount{
+			Email: config.ServiceAccount,
+			Scopes: []string{
+				"https://www.googleapis.com/auth/cloud-platform",
+			},
+		}
+	}
+
+	// Configure network if provided
+	if config.NetworkName != "" || config.SubnetworkName != "" {
+		networkInterface := &batchpb.AllocationPolicy_NetworkInterface{
+			Network:        config.NetworkName,
+			Subnetwork:     config.SubnetworkName,
+			NoExternalIpAddress: config.BlockExternalIP,
+		}
+
+		allocationPolicy.Network = &batchpb.AllocationPolicy_NetworkPolicy{
+			NetworkInterfaces: []*batchpb.AllocationPolicy_NetworkInterface{
+				networkInterface,
+			},
+		}
+	}
+
+	// Set allowed locations if provided
+	if len(config.AllowedLocations) > 0 {
+		allocationPolicy.Location = &batchpb.AllocationPolicy_LocationPolicy{
+			AllowedLocations: config.AllowedLocations,
+		}
+	}
+
+	// Create job with all configuration
+	job := &batchpb.Job{
+		TaskGroups:       []*batchpb.TaskGroup{taskGroup},
+		AllocationPolicy: allocationPolicy,
+		Priority:         config.Priority,
 		LogsPolicy: &batchpb.LogsPolicy{
 			Destination: batchpb.LogsPolicy_CLOUD_LOGGING,
 		},
 	}
 
-	// Submit job to GCP Batch
+	// Set job labels if provided
+	if len(config.JobLabels) > 0 {
+		job.Labels = config.JobLabels
+	}
+
+	// Create job submission request
 	req := &batchpb.CreateJobRequest{
-		Parent: parent,
-		JobId:  config.JobID,
-		Job:    job,
+		Parent:    parent,
+		JobId:     config.JobID,
+		Job:       job,
+		RequestId: config.RequestID,
 	}
 
 	batchJob, err := p.client.CreateJob(ctx, req)
@@ -192,6 +354,10 @@ func mapGCPStatusToJennah(state batchpb.JobStatus_State) batchpkg.JobStatus {
 	case batchpb.JobStatus_FAILED:
 		return batchpkg.JobStatusFailed
 	case batchpb.JobStatus_DELETION_IN_PROGRESS:
+		return batchpkg.JobStatusCancelled
+	case batchpb.JobStatus_CANCELLATION_IN_PROGRESS:
+		return batchpkg.JobStatusCancelled
+	case batchpb.JobStatus_CANCELLED:
 		return batchpkg.JobStatusCancelled
 	default:
 		return batchpkg.JobStatusUnknown
