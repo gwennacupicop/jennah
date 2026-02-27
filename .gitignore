@@ -3,6 +3,7 @@ bin/
 .github/Jennah-overview.png
 .github/instructions/go.instructions.md
 .env
+*.exenode_modules/
 *.exe
 cmd/cli/jennah
 cmd/cli-spanner/

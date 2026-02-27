@@ -5,6 +5,28 @@ package jennah.v1;
 
 option go_package = "github.com/alphauslabs/jennah/gen/proto;jennahv1";
 
+// ComplexityLevel classifies a job by its resource/hardware requirements.
+// Used by the routing layer to select the appropriate GCP execution service.
+enum ComplexityLevel {
+  COMPLEXITY_LEVEL_UNSPECIFIED = 0;
+  // SIMPLE: no machine type, very low CPU/memory, short duration (<= 10 min).
+  // Routes to Cloud Tasks.
+  COMPLEXITY_LEVEL_SIMPLE = 1;
+  // MEDIUM: no specific machine type, moderate resources, duration <= 1 hour.
+  // Routes to Cloud Run Jobs.
+  COMPLEXITY_LEVEL_MEDIUM = 2;
+  // COMPLEX: specific machine type requested, heavy resources, or long duration.
+  // Routes to Cloud Batch.
+  COMPLEXITY_LEVEL_COMPLEX = 3;
+}
+
+// AssignedService indicates which GCP execution service will run the job.
+enum AssignedService {
+  ASSIGNED_SERVICE_UNSPECIFIED = 0;
+  ASSIGNED_SERVICE_CLOUD_TASKS = 1;
+  ASSIGNED_SERVICE_CLOUD_RUN_JOB = 2;
+  ASSIGNED_SERVICE_CLOUD_BATCH = 3;
+}
 
 // Main service definition for Jennah.
 service DeploymentService {
@@ -62,8 +84,14 @@ message SubmitJobRequest {
 
 message SubmitJobResponse {
   string job_id = 1;
-  string status = 2; 
+  string status = 2;
   string worker_assigned = 3;
+  // Complexity tier assigned by the routing classifier: SIMPLE, MEDIUM, or COMPLEX.
+  string complexity_level = 4;
+  // GCP service assigned to execute this job: CLOUD_TASKS, CLOUD_RUN_JOB, or CLOUD_BATCH.
+  string assigned_service = 5;
+  // Human-readable explanation of why this routing decision was made.
+  string routing_reason = 6;
 }
 
 message ListJobsRequest {

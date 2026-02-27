@@ -21,6 +21,119 @@ const (
 	_ = protoimpl.EnforceVersion(protoimpl.MaxVersion - 20)
 )
 
+// ComplexityLevel classifies a job by its resource/hardware requirements.
+// Used by the routing layer to select the appropriate GCP execution service.
+type ComplexityLevel int32
+
+const (
+	ComplexityLevel_COMPLEXITY_LEVEL_UNSPECIFIED ComplexityLevel = 0
+	// SIMPLE: no machine type, very low CPU/memory, short duration (<= 10 min).
+	// Routes to Cloud Tasks.
+	ComplexityLevel_COMPLEXITY_LEVEL_SIMPLE ComplexityLevel = 1
+	// MEDIUM: no specific machine type, moderate resources, duration <= 1 hour.
+	// Routes to Cloud Run Jobs.
+	ComplexityLevel_COMPLEXITY_LEVEL_MEDIUM ComplexityLevel = 2
+	// COMPLEX: specific machine type requested, heavy resources, or long duration.
+	// Routes to Cloud Batch.
+	ComplexityLevel_COMPLEXITY_LEVEL_COMPLEX ComplexityLevel = 3
+)
+
+// Enum value maps for ComplexityLevel.
+var (
+	ComplexityLevel_name = map[int32]string{
+		0: "COMPLEXITY_LEVEL_UNSPECIFIED",
+		1: "COMPLEXITY_LEVEL_SIMPLE",
+		2: "COMPLEXITY_LEVEL_MEDIUM",
+		3: "COMPLEXITY_LEVEL_COMPLEX",
+	}
+	ComplexityLevel_value = map[string]int32{
+		"COMPLEXITY_LEVEL_UNSPECIFIED": 0,
+		"COMPLEXITY_LEVEL_SIMPLE":      1,
+		"COMPLEXITY_LEVEL_MEDIUM":      2,
+		"COMPLEXITY_LEVEL_COMPLEX":     3,
+	}
+)
+
+func (x ComplexityLevel) Enum() *ComplexityLevel {
+	p := new(ComplexityLevel)
+	*p = x
+	return p
+}
+
+func (x ComplexityLevel) String() string {
+	return protoimpl.X.EnumStringOf(x.Descriptor(), protoreflect.EnumNumber(x))
+}
+
+func (ComplexityLevel) Descriptor() protoreflect.EnumDescriptor {
+	return file_proto_jennah_proto_enumTypes[0].Descriptor()
+}
+
+func (ComplexityLevel) Type() protoreflect.EnumType {
+	return &file_proto_jennah_proto_enumTypes[0]
+}
+
+func (x ComplexityLevel) Number() protoreflect.EnumNumber {
+	return protoreflect.EnumNumber(x)
+}
+
+// Deprecated: Use ComplexityLevel.Descriptor instead.
+func (ComplexityLevel) EnumDescriptor() ([]byte, []int) {
+	return file_proto_jennah_proto_rawDescGZIP(), []int{0}
+}
+
+// AssignedService indicates which GCP execution service will run the job.
+type AssignedService int32
+
+const (
+	AssignedService_ASSIGNED_SERVICE_UNSPECIFIED   AssignedService = 0
+	AssignedService_ASSIGNED_SERVICE_CLOUD_TASKS   AssignedService = 1
+	AssignedService_ASSIGNED_SERVICE_CLOUD_RUN_JOB AssignedService = 2
+	AssignedService_ASSIGNED_SERVICE_CLOUD_BATCH   AssignedService = 3
+)
+
+// Enum value maps for AssignedService.
+var (
+	AssignedService_name = map[int32]string{
+		0: "ASSIGNED_SERVICE_UNSPECIFIED",
+		1: "ASSIGNED_SERVICE_CLOUD_TASKS",
+		2: "ASSIGNED_SERVICE_CLOUD_RUN_JOB",
+		3: "ASSIGNED_SERVICE_CLOUD_BATCH",
+	}
+	AssignedService_value = map[string]int32{
+		"ASSIGNED_SERVICE_UNSPECIFIED":   0,
+		"ASSIGNED_SERVICE_CLOUD_TASKS":   1,
+		"ASSIGNED_SERVICE_CLOUD_RUN_JOB": 2,
+		"ASSIGNED_SERVICE_CLOUD_BATCH":   3,
+	}
+)
+
+func (x AssignedService) Enum() *AssignedService {
+	p := new(AssignedService)
+	*p = x
+	return p
+}
+
+func (x AssignedService) String() string {
+	return protoimpl.X.EnumStringOf(x.Descriptor(), protoreflect.EnumNumber(x))
+}
+
+func (AssignedService) Descriptor() protoreflect.EnumDescriptor {
+	return file_proto_jennah_proto_enumTypes[1].Descriptor()
+}
+
+func (AssignedService) Type() protoreflect.EnumType {
+	return &file_proto_jennah_proto_enumTypes[1]
+}
+
+func (x AssignedService) Number() protoreflect.EnumNumber {
+	return protoreflect.EnumNumber(x)
+}
+
+// Deprecated: Use AssignedService.Descriptor instead.
+func (AssignedService) EnumDescriptor() ([]byte, []int) {
+	return file_proto_jennah_proto_rawDescGZIP(), []int{1}
+}
+
 // ResourceOverride allows callers to specify custom compute resource values.
 // Any zero-value field is filled in from the resolved preset (or default).
 type ResourceOverride struct {
@@ -227,8 +340,14 @@ type SubmitJobResponse struct {
 	JobId          string                 `protobuf:"bytes,1,opt,name=job_id,json=jobId,proto3" json:"job_id,omitempty"`
 	Status         string                 `protobuf:"bytes,2,opt,name=status,proto3" json:"status,omitempty"`
 	WorkerAssigned string                 `protobuf:"bytes,3,opt,name=worker_assigned,json=workerAssigned,proto3" json:"worker_assigned,omitempty"`
-	unknownFields  protoimpl.UnknownFields
-	sizeCache      protoimpl.SizeCache
+	// Complexity tier assigned by the routing classifier: SIMPLE, MEDIUM, or COMPLEX.
+	ComplexityLevel string `protobuf:"bytes,4,opt,name=complexity_level,json=complexityLevel,proto3" json:"complexity_level,omitempty"`
+	// GCP service assigned to execute this job: CLOUD_TASKS, CLOUD_RUN_JOB, or CLOUD_BATCH.
+	AssignedService string `protobuf:"bytes,5,opt,name=assigned_service,json=assignedService,proto3" json:"assigned_service,omitempty"`
+	// Human-readable explanation of why this routing decision was made.
+	RoutingReason string `protobuf:"bytes,6,opt,name=routing_reason,json=routingReason,proto3" json:"routing_reason,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
 }
 
 func (x *SubmitJobResponse) Reset() {
@@ -278,6 +397,27 @@ func (x *SubmitJobResponse) GetStatus() string {
 func (x *SubmitJobResponse) GetWorkerAssigned() string {
 	if x != nil {
 		return x.WorkerAssigned
+	}
+	return ""
+}
+
+func (x *SubmitJobResponse) GetComplexityLevel() string {
+	if x != nil {
+		return x.ComplexityLevel
+	}
+	return ""
+}
+
+func (x *SubmitJobResponse) GetAssignedService() string {
+	if x != nil {
+		return x.AssignedService
+	}
+	return ""
+}
+
+func (x *SubmitJobResponse) GetRoutingReason() string {
+	if x != nil {
+		return x.RoutingReason
 	}
 	return ""
 }
@@ -991,11 +1131,14 @@ const file_proto_jennah_proto_rawDesc = "" +
 	"\bcommands\x18\v \x03(\tR\bcommands\x1a:\n" +
 	"\fEnvVarsEntry\x12\x10\n" +
 	"\x03key\x18\x01 \x01(\tR\x03key\x12\x14\n" +
-	"\x05value\x18\x02 \x01(\tR\x05value:\x028\x01\"k\n" +
+	"\x05value\x18\x02 \x01(\tR\x05value:\x028\x01\"\xe8\x01\n" +
 	"\x11SubmitJobResponse\x12\x15\n" +
 	"\x06job_id\x18\x01 \x01(\tR\x05jobId\x12\x16\n" +
 	"\x06status\x18\x02 \x01(\tR\x06status\x12'\n" +
-	"\x0fworker_assigned\x18\x03 \x01(\tR\x0eworkerAssigned\"\x11\n" +
+	"\x0fworker_assigned\x18\x03 \x01(\tR\x0eworkerAssigned\x12)\n" +
+	"\x10complexity_level\x18\x04 \x01(\tR\x0fcomplexityLevel\x12)\n" +
+	"\x10assigned_service\x18\x05 \x01(\tR\x0fassignedService\x12%\n" +
+	"\x0erouting_reason\x18\x06 \x01(\tR\rroutingReason\"\x11\n" +
 	"\x0fListJobsRequest\"6\n" +
 	"\x10ListJobsResponse\x12\"\n" +
 	"\x04jobs\x18\x01 \x03(\v2\x0e.jennah.v1.JobR\x04jobs\"\xee\x05\n" +
@@ -1050,7 +1193,17 @@ const file_proto_jennah_proto_rawDesc = "" +
 	"\rGetJobRequest\x12\x15\n" +
 	"\x06job_id\x18\x01 \x01(\tR\x05jobId\"2\n" +
 	"\x0eGetJobResponse\x12 \n" +
-	"\x03job\x18\x01 \x01(\v2\x0e.jennah.v1.JobR\x03job2\xcc\x03\n" +
+	"\x03job\x18\x01 \x01(\v2\x0e.jennah.v1.JobR\x03job*\x8b\x01\n" +
+	"\x0fComplexityLevel\x12 \n" +
+	"\x1cCOMPLEXITY_LEVEL_UNSPECIFIED\x10\x00\x12\x1b\n" +
+	"\x17COMPLEXITY_LEVEL_SIMPLE\x10\x01\x12\x1b\n" +
+	"\x17COMPLEXITY_LEVEL_MEDIUM\x10\x02\x12\x1c\n" +
+	"\x18COMPLEXITY_LEVEL_COMPLEX\x10\x03*\x9b\x01\n" +
+	"\x0fAssignedService\x12 \n" +
+	"\x1cASSIGNED_SERVICE_UNSPECIFIED\x10\x00\x12 \n" +
+	"\x1cASSIGNED_SERVICE_CLOUD_TASKS\x10\x01\x12\"\n" +
+	"\x1eASSIGNED_SERVICE_CLOUD_RUN_JOB\x10\x02\x12 \n" +
+	"\x1cASSIGNED_SERVICE_CLOUD_BATCH\x10\x032\xcc\x03\n" +
 	"\x11DeploymentService\x12F\n" +
 	"\tSubmitJob\x12\x1b.jennah.v1.SubmitJobRequest\x1a\x1c.jennah.v1.SubmitJobResponse\x12C\n" +
 	"\bListJobs\x12\x1a.jennah.v1.ListJobsRequest\x1a\x1b.jennah.v1.ListJobsResponse\x12[\n" +
@@ -1071,41 +1224,44 @@ func file_proto_jennah_proto_rawDescGZIP() []byte {
 	return file_proto_jennah_proto_rawDescData
 }
 
+var file_proto_jennah_proto_enumTypes = make([]protoimpl.EnumInfo, 2)
 var file_proto_jennah_proto_msgTypes = make([]protoimpl.MessageInfo, 15)
 var file_proto_jennah_proto_goTypes = []any{
-	(*ResourceOverride)(nil),         // 0: jennah.v1.ResourceOverride
-	(*SubmitJobRequest)(nil),         // 1: jennah.v1.SubmitJobRequest
-	(*SubmitJobResponse)(nil),        // 2: jennah.v1.SubmitJobResponse
-	(*ListJobsRequest)(nil),          // 3: jennah.v1.ListJobsRequest
-	(*ListJobsResponse)(nil),         // 4: jennah.v1.ListJobsResponse
-	(*Job)(nil),                      // 5: jennah.v1.Job
-	(*GetCurrentTenantRequest)(nil),  // 6: jennah.v1.GetCurrentTenantRequest
-	(*GetCurrentTenantResponse)(nil), // 7: jennah.v1.GetCurrentTenantResponse
-	(*CancelJobRequest)(nil),         // 8: jennah.v1.CancelJobRequest
-	(*CancelJobResponse)(nil),        // 9: jennah.v1.CancelJobResponse
-	(*DeleteJobRequest)(nil),         // 10: jennah.v1.DeleteJobRequest
-	(*DeleteJobResponse)(nil),        // 11: jennah.v1.DeleteJobResponse
-	(*GetJobRequest)(nil),            // 12: jennah.v1.GetJobRequest
-	(*GetJobResponse)(nil),           // 13: jennah.v1.GetJobResponse
-	nil,                              // 14: jennah.v1.SubmitJobRequest.EnvVarsEntry
+	(ComplexityLevel)(0),             // 0: jennah.v1.ComplexityLevel
+	(AssignedService)(0),             // 1: jennah.v1.AssignedService
+	(*ResourceOverride)(nil),         // 2: jennah.v1.ResourceOverride
+	(*SubmitJobRequest)(nil),         // 3: jennah.v1.SubmitJobRequest
+	(*SubmitJobResponse)(nil),        // 4: jennah.v1.SubmitJobResponse
+	(*ListJobsRequest)(nil),          // 5: jennah.v1.ListJobsRequest
+	(*ListJobsResponse)(nil),         // 6: jennah.v1.ListJobsResponse
+	(*Job)(nil),                      // 7: jennah.v1.Job
+	(*GetCurrentTenantRequest)(nil),  // 8: jennah.v1.GetCurrentTenantRequest
+	(*GetCurrentTenantResponse)(nil), // 9: jennah.v1.GetCurrentTenantResponse
+	(*CancelJobRequest)(nil),         // 10: jennah.v1.CancelJobRequest
+	(*CancelJobResponse)(nil),        // 11: jennah.v1.CancelJobResponse
+	(*DeleteJobRequest)(nil),         // 12: jennah.v1.DeleteJobRequest
+	(*DeleteJobResponse)(nil),        // 13: jennah.v1.DeleteJobResponse
+	(*GetJobRequest)(nil),            // 14: jennah.v1.GetJobRequest
+	(*GetJobResponse)(nil),           // 15: jennah.v1.GetJobResponse
+	nil,                              // 16: jennah.v1.SubmitJobRequest.EnvVarsEntry
 }
 var file_proto_jennah_proto_depIdxs = []int32{
-	14, // 0: jennah.v1.SubmitJobRequest.env_vars:type_name -> jennah.v1.SubmitJobRequest.EnvVarsEntry
-	0,  // 1: jennah.v1.SubmitJobRequest.resource_override:type_name -> jennah.v1.ResourceOverride
-	5,  // 2: jennah.v1.ListJobsResponse.jobs:type_name -> jennah.v1.Job
-	5,  // 3: jennah.v1.GetJobResponse.job:type_name -> jennah.v1.Job
-	1,  // 4: jennah.v1.DeploymentService.SubmitJob:input_type -> jennah.v1.SubmitJobRequest
-	3,  // 5: jennah.v1.DeploymentService.ListJobs:input_type -> jennah.v1.ListJobsRequest
-	6,  // 6: jennah.v1.DeploymentService.GetCurrentTenant:input_type -> jennah.v1.GetCurrentTenantRequest
-	8,  // 7: jennah.v1.DeploymentService.CancelJob:input_type -> jennah.v1.CancelJobRequest
-	10, // 8: jennah.v1.DeploymentService.DeleteJob:input_type -> jennah.v1.DeleteJobRequest
-	12, // 9: jennah.v1.DeploymentService.GetJob:input_type -> jennah.v1.GetJobRequest
-	2,  // 10: jennah.v1.DeploymentService.SubmitJob:output_type -> jennah.v1.SubmitJobResponse
-	4,  // 11: jennah.v1.DeploymentService.ListJobs:output_type -> jennah.v1.ListJobsResponse
-	7,  // 12: jennah.v1.DeploymentService.GetCurrentTenant:output_type -> jennah.v1.GetCurrentTenantResponse
-	9,  // 13: jennah.v1.DeploymentService.CancelJob:output_type -> jennah.v1.CancelJobResponse
-	11, // 14: jennah.v1.DeploymentService.DeleteJob:output_type -> jennah.v1.DeleteJobResponse
-	13, // 15: jennah.v1.DeploymentService.GetJob:output_type -> jennah.v1.GetJobResponse
+	16, // 0: jennah.v1.SubmitJobRequest.env_vars:type_name -> jennah.v1.SubmitJobRequest.EnvVarsEntry
+	2,  // 1: jennah.v1.SubmitJobRequest.resource_override:type_name -> jennah.v1.ResourceOverride
+	7,  // 2: jennah.v1.ListJobsResponse.jobs:type_name -> jennah.v1.Job
+	7,  // 3: jennah.v1.GetJobResponse.job:type_name -> jennah.v1.Job
+	3,  // 4: jennah.v1.DeploymentService.SubmitJob:input_type -> jennah.v1.SubmitJobRequest
+	5,  // 5: jennah.v1.DeploymentService.ListJobs:input_type -> jennah.v1.ListJobsRequest
+	8,  // 6: jennah.v1.DeploymentService.GetCurrentTenant:input_type -> jennah.v1.GetCurrentTenantRequest
+	10, // 7: jennah.v1.DeploymentService.CancelJob:input_type -> jennah.v1.CancelJobRequest
+	12, // 8: jennah.v1.DeploymentService.DeleteJob:input_type -> jennah.v1.DeleteJobRequest
+	14, // 9: jennah.v1.DeploymentService.GetJob:input_type -> jennah.v1.GetJobRequest
+	4,  // 10: jennah.v1.DeploymentService.SubmitJob:output_type -> jennah.v1.SubmitJobResponse
+	6,  // 11: jennah.v1.DeploymentService.ListJobs:output_type -> jennah.v1.ListJobsResponse
+	9,  // 12: jennah.v1.DeploymentService.GetCurrentTenant:output_type -> jennah.v1.GetCurrentTenantResponse
+	11, // 13: jennah.v1.DeploymentService.CancelJob:output_type -> jennah.v1.CancelJobResponse
+	13, // 14: jennah.v1.DeploymentService.DeleteJob:output_type -> jennah.v1.DeleteJobResponse
+	15, // 15: jennah.v1.DeploymentService.GetJob:output_type -> jennah.v1.GetJobResponse
 	10, // [10:16] is the sub-list for method output_type
 	4,  // [4:10] is the sub-list for method input_type
 	4,  // [4:4] is the sub-list for extension type_name
@@ -1123,13 +1279,14 @@ func file_proto_jennah_proto_init() {
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_proto_jennah_proto_rawDesc), len(file_proto_jennah_proto_rawDesc)),
-			NumEnums:      0,
+			NumEnums:      2,
 			NumMessages:   15,
 			NumExtensions: 0,
 			NumServices:   1,
 		},
 		GoTypes:           file_proto_jennah_proto_goTypes,
 		DependencyIndexes: file_proto_jennah_proto_depIdxs,
+		EnumInfos:         file_proto_jennah_proto_enumTypes,
 		MessageInfos:      file_proto_jennah_proto_msgTypes,
 	}.Build()
 	File_proto_jennah_proto = out.File

@@ -14,6 +14,7 @@ import (
 	jennahv1 "github.com/alphauslabs/jennah/gen/proto"
 	jennahv1connect "github.com/alphauslabs/jennah/gen/proto/jennahv1connect"
 	"github.com/alphauslabs/jennah/internal/database"
+	"github.com/alphauslabs/jennah/internal/router"
 )
 
 func (s *GatewayService) resolveTenant(header http.Header) (string, error) {
@@ -153,6 +154,10 @@ func (s *GatewayService) SubmitJob(
 	}
 	log.Printf("Selected worker: %s for tenant (routing key: %s)", workerIP, gatewayJobID)
 
+	routingDecision := router.EvaluateJobComplexity(req.Msg)
+	log.Printf("Routing decision: complexity=%s, service=%s, reason=%s",
+		routingDecision.Complexity, routingDecision.AssignedService, routingDecision.Reason)
+
 	workerReq := connect.NewRequest(&jennahv1.SubmitJobRequest{
 		JobId:            gatewayJobID,
 		ImageUri:         req.Msg.ImageUri,
@@ -175,8 +180,12 @@ func (s *GatewayService) SubmitJob(
 	}
 
 	response.Msg.WorkerAssigned = workerIP
-	log.Printf("Job submitted successfully: jobId=%s, worker=%s, status=%s",
-		response.Msg.JobId, workerIP, response.Msg.Status)
+	response.Msg.ComplexityLevel = routingDecision.Complexity.String()
+	response.Msg.AssignedService = routingDecision.AssignedService.String()
+	response.Msg.RoutingReason = routingDecision.Reason
+	log.Printf("Job submitted successfully: jobId=%s, worker=%s, status=%s, complexity=%s, service=%s",
+		response.Msg.JobId, workerIP, response.Msg.Status,
+		response.Msg.ComplexityLevel, response.Msg.AssignedService)
 
 	return response, nil
 }
