@@ -10,6 +10,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"strings"
+	"sync/atomic"
 	"time"
 
 	"github.com/spf13/cobra"
@@ -242,6 +243,20 @@ func prompt(label string) (string, error) {
 	return strings.TrimSpace(val), nil
 }
 
+// openBrowser tries to open a URL, handling Linux, WSL, and macOS.
+func openBrowser(rawURL string) {
+	// WSL: use cmd.exe
+	if data, err := os.ReadFile("/proc/version"); err == nil {
+		v := strings.ToLower(string(data))
+		if strings.Contains(v, "microsoft") || strings.Contains(v, "wsl") {
+			exec.Command("cmd.exe", "/c", "start", "", rawURL).Start()
+			return
+		}
+	}
+	// Native Linux
+	exec.Command("xdg-open", rawURL).Start()
+}
+
 var loginCmd = &cobra.Command{
 	Use:   "login",
 	Short: "Log in to Jennah via GitHub",
@@ -275,11 +290,21 @@ var loginCmd = &cobra.Command{
 		fmt.Printf("Opening GitHub in your browser...\n")
 		fmt.Printf("If it doesn't open, go to: \033[36m%s\033[0m\n\n", dcResp.VerificationURI)
 		fmt.Printf("Enter this code: \033[1;33m%s\033[0m\n\n", dcResp.UserCode)
-		exec.Command("xdg-open", dcResp.VerificationURI).Start()
-		fmt.Printf("Waiting for authorization (expires in %ds)...\n", dcResp.ExpiresIn)
+		openBrowser(dcResp.VerificationURI)
+
+		// Live countdown while polling.
+		var done atomic.Bool
+		go func() {
+			for secs := dcResp.ExpiresIn; secs >= 0 && !done.Load(); secs-- {
+				fmt.Printf("\rWaiting for authorization... \033[33m%ds\033[0m remaining ", secs)
+				time.Sleep(1 * time.Second)
+			}
+		}()
 
 		// Step 3: Poll until approved or expired.
 		accessToken, err := githubPollForToken(clientID, dcResp.DeviceCode, dcResp.Interval, dcResp.ExpiresIn)
+		done.Store(true)
+		fmt.Print("\r\033[2K") // clear the countdown line
 		if err != nil {
 			return err
 		}
