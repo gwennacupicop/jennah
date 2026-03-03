@@ -17,6 +17,7 @@ import (
 	batch "github.com/alphauslabs/jennah/internal/cloudexec"
 	"github.com/alphauslabs/jennah/internal/database"
 	"github.com/alphauslabs/jennah/internal/navigator"
+	"github.com/alphauslabs/jennah/internal/router"
 )
 
 // dbJobToProto converts a database Job to a proto Job message.
@@ -173,6 +174,7 @@ func (s *WorkerService) SubmitJob(
 	// Override the plan's JobID with the provider-compatible one we generated.
 	plan.Config.JobID = providerJobID
 	plan.Config.RequestID = internalJobID
+	plan.Config.TenantID = tenantID
 
 	var jobResult *batch.JobResult
 	if s.dispatcher != nil {
@@ -200,7 +202,7 @@ func (s *WorkerService) SubmitJob(
 		statusToSet = database.JobStatusRunning
 	}
 
-	err = s.dbClient.UpdateJobStatusAndGcpBatchJobPath(ctx, tenantID, internalJobID, statusToSet, jobResult.CloudResourcePath)
+	err = s.dbClient.UpdateJobStatusAndGcpBatchJobPath(ctx, tenantID, internalJobID, statusToSet, jobResult.CloudResourcePath, serviceTierFromPlan(plan))
 	if err != nil {
 		log.Printf("Error updating job status to %s: %v", statusToSet, err)
 		return nil, connect.NewError(
@@ -211,7 +213,7 @@ func (s *WorkerService) SubmitJob(
 	log.Printf("Job %s status updated to %s with GCP Batch job path: %s", internalJobID, statusToSet, jobResult.CloudResourcePath)
 
 	// Start background polling goroutine to track job status.
-	s.startJobPoller(ctx, tenantID, internalJobID, jobResult.CloudResourcePath, statusToSet)
+	s.startJobPoller(ctx, tenantID, internalJobID, jobResult.CloudResourcePath, statusToSet, serviceTierFromPlan(plan))
 
 	response := connect.NewResponse(&jennahv1.SubmitJobResponse{
 		JobId:  internalJobID,
@@ -502,4 +504,18 @@ func ptrBoolOrNil(v bool) *bool {
 		return nil
 	}
 	return &v
+}
+
+// serviceTierFromPlan maps a NavigationPlan's AssignedService to a database ServiceTier constant.
+func serviceTierFromPlan(plan *navigator.NavigationPlan) string {
+	switch plan.AssignedService {
+	case router.AssignedServiceCloudTasks:
+		return database.ServiceTierSimple
+	case router.AssignedServiceCloudRunJob:
+		return database.ServiceTierMedium
+	case router.AssignedServiceCloudBatch:
+		return database.ServiceTierComplex
+	default:
+		return database.ServiceTierComplex
+	}
 }
