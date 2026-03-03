@@ -16,8 +16,8 @@ import (
 
 	"github.com/alphauslabs/jennah/cmd/worker/service"
 	"github.com/alphauslabs/jennah/gen/proto/jennahv1connect"
-	"github.com/alphauslabs/jennah/internal/batch"
-	_ "github.com/alphauslabs/jennah/internal/batch/gcp" // Register GCP providers (Cloud Batch, Cloud Tasks, Cloud Run)
+	batch "github.com/alphauslabs/jennah/internal/cloudexec"
+	_ "github.com/alphauslabs/jennah/internal/cloudexec/gcp" // Register GCP providers (Cloud Batch, Cloud Tasks, Cloud Run)
 	"github.com/alphauslabs/jennah/internal/config"
 	"github.com/alphauslabs/jennah/internal/database"
 	"github.com/alphauslabs/jennah/internal/dispatcher"

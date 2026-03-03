@@ -7,7 +7,7 @@ import (
 	gcpbatch "cloud.google.com/go/batch/apiv1"
 
 	"github.com/alphauslabs/jennah/gen/proto/jennahv1connect"
-	"github.com/alphauslabs/jennah/internal/batch"
+	batch "github.com/alphauslabs/jennah/internal/cloudexec"
 	"github.com/alphauslabs/jennah/internal/config"
 	"github.com/alphauslabs/jennah/internal/database"
 	"github.com/alphauslabs/jennah/internal/dispatcher"

@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/alphauslabs/jennah/internal/batch"
+	batch "github.com/alphauslabs/jennah/internal/cloudexec"
 )
 
 // JobConfigFile represents the structure of the job configuration JSON file.
