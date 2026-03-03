@@ -12,7 +12,7 @@ import (
 	api "google.golang.org/genproto/googleapis/api"
 	"google.golang.org/protobuf/types/known/durationpb"
 
-	batchpkg "github.com/alphauslabs/jennah/internal/batch"
+	batchpkg "github.com/alphauslabs/jennah/internal/cloudexec"
 )
 
 func init() {

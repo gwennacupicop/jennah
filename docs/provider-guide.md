@@ -260,7 +260,7 @@ import (
     "context"
     "fmt"
 
-    batchpkg "github.com/alphauslabs/jennah/internal/batch"
+    batchpkg "github.com/alphauslabs/jennah/internal/cloudexec"
 )
 
 func init() {
@@ -347,9 +347,9 @@ Update `cmd/worker/main.go`:
 
 ```go
 import (
-    _ "github.com/alphauslabs/jennah/internal/batch/gcp"   // Register GCP
-    _ "github.com/alphauslabs/jennah/internal/batch/aws"   // Register AWS
-    _ "github.com/alphauslabs/jennah/internal/batch/azure" // Register Azure
+    _ "github.com/alphauslabs/jennah/internal/cloudexec/gcp"   // Register GCP
+    _ "github.com/alphauslabs/jennah/internal/cloudexec/aws"   // Register AWS
+    _ "github.com/alphauslabs/jennah/internal/cloudexec/azure" // Register Azure
 )
 ```
 

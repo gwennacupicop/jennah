@@ -9,7 +9,7 @@ import (
 	cloudtasks "cloud.google.com/go/cloudtasks/apiv2"
 	taskspb "cloud.google.com/go/cloudtasks/apiv2/cloudtaskspb"
 
-	batchpkg "github.com/alphauslabs/jennah/internal/batch"
+	batchpkg "github.com/alphauslabs/jennah/internal/cloudexec"
 )
 
 func init() {

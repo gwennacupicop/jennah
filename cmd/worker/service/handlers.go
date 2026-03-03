@@ -14,7 +14,7 @@ import (
 	"github.com/google/uuid"
 
 	jennahv1 "github.com/alphauslabs/jennah/gen/proto"
-	"github.com/alphauslabs/jennah/internal/batch"
+	batch "github.com/alphauslabs/jennah/internal/cloudexec"
 	"github.com/alphauslabs/jennah/internal/database"
 	"github.com/alphauslabs/jennah/internal/navigator"
 )

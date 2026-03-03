@@ -5,7 +5,7 @@ import (
 	"os"
 	"strconv"
 
-	"github.com/alphauslabs/jennah/internal/batch"
+	batch "github.com/alphauslabs/jennah/internal/cloudexec"
 )
 
 // Config represents the complete worker configuration.
