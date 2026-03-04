@@ -261,11 +261,11 @@ func friendlyService(s string) string {
 
 func init() {
 	submitCmd.Flags().Bool("wait", false, "Block until the job completes (polls every 3s)")
-	submitCmd.Flags().String("machine-type", "", "GCP machine type — routes to Cloud Batch (e.g. e2-standard-4, n1-standard-16)")
-	submitCmd.Flags().String("profile", "", "Resource preset — overrides resource flags (e.g. small, medium, large, xlarge)")
-	submitCmd.Flags().Int64("memory-mib", 0, "Memory in MiB — overrides profile (e.g. 512, 2048)")
-	submitCmd.Flags().Int64("cpu-millis", 0, "CPU in millicores — overrides profile (e.g. 1000, 2000)")
-	submitCmd.Flags().Int64("timeout-sec", 0, "Job timeout in seconds (e.g. 600, 3600) — default no limit")
+	submitCmd.Flags().String("machine-type", "", "GCP machine type — routes to Cloud Batch")
+	submitCmd.Flags().String("profile", "", "Resource preset: small | medium | large | xlarge")
+	submitCmd.Flags().Int64("memory-mib", 0, "Memory in MiB — overrides profile")
+	submitCmd.Flags().Int64("cpu-millis", 0, "CPU in millicores — overrides profile")
+	submitCmd.Flags().Int64("timeout-sec", 0, "Job timeout in seconds")
 	submitCmd.Flags().String("name", "", "Optional human-readable job name")
 	submitCmd.Flags().String("service-account", "", "Custom GCP service account email")
 	submitCmd.Flags().Bool("spot", false, "Use Spot VMs (cheaper, preemptible)")
