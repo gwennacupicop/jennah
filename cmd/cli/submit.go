@@ -15,21 +15,20 @@ import (
 var submitCmd = &cobra.Command{
 	Use:   "submit <job.json>",
 	Short: "Submit a job",
-	Long: `jennah submit <job.json> [flags]
-
-Reads base job parameters from a JSON file and submits the job.
+	Long: `Reads base job parameters from a JSON file and submits the job.
 Flags override values in the JSON file.
 
 Routing tiers (decided automatically by the gateway):
-  SIMPLE  → Cloud Tasks    (no machine type, low resources)
+  SIMPLE  → Cloud Tasks    (no machine type, cpu ≤ 500m, memory ≤ 512 MiB, timeout ≤ 600s)
   MEDIUM  → Cloud Run Jobs (no machine type, moderate resources)
-  COMPLEX → Cloud Batch    (machine type specified, or heavy resources)
-
-Examples:
-  jennah submit job.json
-  jennah submit job.json --machine-type e2-standard-4 --wait
-  jennah submit job.json --memory-mib 1024 --cpu-millis 2000
-  jennah submit job.json --profile large --timeout-sec 3600 --wait`,
+  COMPLEX → Cloud Batch    (machine type set, or heavy resources)`,
+	Example: `  jennah submit job.json                                                  (SIMPLE → Cloud Tasks)
+  jennah submit job.json --memory-mib 1024                                (MEDIUM → Cloud Run Jobs)
+  jennah submit job.json --cpu-millis 2000 --memory-mib 2048              (MEDIUM → Cloud Run Jobs)
+  jennah submit job.json --machine-type e2-standard-4                     (COMPLEX → Cloud Batch)
+  jennah submit job.json --machine-type n1-standard-4 --spot --wait       (COMPLEX, Spot VM, wait)
+  jennah submit job.json --profile large --timeout-sec 3600 --wait        (named profile, with wait)
+  jennah submit job.json --name my-job --cpu-millis 1000 --memory-mib 512 (named job, MEDIUM)`,
 	Args: cobra.ExactArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		wait, _ := cmd.Flags().GetBool("wait")
@@ -90,6 +89,11 @@ Examples:
 		memMib, _ := cmd.Flags().GetInt64("memory-mib")
 		cpuMillis, _ := cmd.Flags().GetInt64("cpu-millis")
 		timeoutSec, _ := cmd.Flags().GetInt64("timeout-sec")
+
+		if cpuMillis > 0 && cpuMillis < 1000 {
+			return fmt.Errorf("--cpu-millis %d is too low: Cloud Run Jobs requires at least 1 vCPU (min 1000 millis).\nUse --cpu-millis 1000 or higher, or leave it unset for default routing", cpuMillis)
+		}
+
 		if memMib > 0 || cpuMillis > 0 || timeoutSec > 0 {
 			override, _ := body["resourceOverride"].(map[string]interface{})
 			if override == nil {
@@ -260,9 +264,24 @@ func init() {
 	submitCmd.Flags().String("machine-type", "", "GCP machine type (e.g. e2-standard-4, n1-standard-16) — routes to Cloud Batch")
 	submitCmd.Flags().String("profile", "", "Resource preset: small | medium | large | xlarge")
 	submitCmd.Flags().Int64("memory-mib", 0, "Memory in MiB (e.g. 512, 2048) — overrides profile")
-	submitCmd.Flags().Int64("cpu-millis", 0, "CPU in millicores (e.g. 500, 2000) — overrides profile")
+	submitCmd.Flags().Int64("cpu-millis", 0, "CPU in millicores, min 1000 (e.g. 1000=1 vCPU, 2000=2 vCPU) — overrides profile")
 	submitCmd.Flags().Int64("timeout-sec", 0, "Job timeout in seconds (e.g. 600, 3600)")
 	submitCmd.Flags().String("name", "", "Optional human-readable job name")
 	submitCmd.Flags().String("service-account", "", "Custom GCP service account email")
 	submitCmd.Flags().Bool("spot", false, "Use Spot VMs (cheaper, preemptible)")
+
+	// Show Examples after Flags in --help output
+	submitCmd.SetHelpTemplate(`{{with .Short}}{{. | trimRightSpace}}
+
+{{end}}{{with .Long}}{{. | trimRightSpace}}
+
+{{end}}Usage:
+  {{.UseLine}}
+
+Flags:
+{{.LocalFlags.FlagUsages | trimRightSpace}}
+{{with .Example}}
+Examples:
+{{.}}
+{{end}}`)
 }
