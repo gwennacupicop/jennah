@@ -101,6 +101,21 @@ func dbJobToProto(job *database.Job) *jennahv1.Job {
 	if job.ServiceAccount != nil {
 		p.ServiceAccount = *job.ServiceAccount
 	}
+	if job.ServiceTier != nil {
+		p.ComplexityLevel = *job.ServiceTier
+	}
+	if job.AssignedService != nil {
+		p.AssignedService = *job.AssignedService
+	}
+	if job.MemoryMib != nil {
+		p.MemoryMib = *job.MemoryMib
+	}
+	if job.CpuMillis != nil {
+		p.CpuMillis = *job.CpuMillis
+	}
+	if job.MaxRunDurationSeconds != nil {
+		p.MaxRunDurationSeconds = *job.MaxRunDurationSeconds
+	}
 
 	return p
 }

@@ -30,6 +30,7 @@ func (c *Client) InsertJobFull(ctx context.Context, job *Job) error {
 				"GcpBatchJobPath", "GcpBatchTaskGroup", "EnvVarsJson",
 				"Name", "ResourceProfile", "MachineType",
 				"BootDiskSizeGb", "UseSpotVms", "ServiceAccount", "ServiceTier",
+				"AssignedService", "MemoryMib", "CpuMillis", "MaxRunDurationSeconds",
 				"OwnerWorkerId", "PreferredWorkerId", "LeaseExpiresAt", "LastHeartbeatAt",
 			},
 			[]interface{}{
@@ -38,6 +39,7 @@ func (c *Client) InsertJobFull(ctx context.Context, job *Job) error {
 				job.GcpBatchJobPath, job.GcpBatchTaskGroup, job.EnvVarsJson,
 				job.Name, job.ResourceProfile, job.MachineType,
 				job.BootDiskSizeGb, job.UseSpotVms, job.ServiceAccount, job.ServiceTier,
+				job.AssignedService, job.MemoryMib, job.CpuMillis, job.MaxRunDurationSeconds,
 				job.OwnerWorkerId, job.PreferredWorkerId, job.LeaseExpiresAt, job.LastHeartbeatAt,
 			},
 		),
@@ -49,7 +51,7 @@ func (c *Client) InsertJobFull(ctx context.Context, job *Job) error {
 func (c *Client) GetJob(ctx context.Context, tenantID, jobID string) (*Job, error) {
 	row, err := c.client.Single().ReadRow(ctx, "Jobs",
 		spanner.Key{tenantID, jobID},
-		[]string{"TenantId", "JobId", "Status", "ImageUri", "Commands", "CreatedAt", "UpdatedAt", "ScheduledAt", "StartedAt", "CompletedAt", "RetryCount", "MaxRetries", "ErrorMessage", "GcpBatchJobPath", "GcpBatchTaskGroup", "EnvVarsJson", "Name", "ResourceProfile", "MachineType", "BootDiskSizeGb", "UseSpotVms", "ServiceAccount", "ServiceTier", "OwnerWorkerId", "PreferredWorkerId", "LeaseExpiresAt", "LastHeartbeatAt"},
+		[]string{"TenantId", "JobId", "Status", "ImageUri", "Commands", "CreatedAt", "UpdatedAt", "ScheduledAt", "StartedAt", "CompletedAt", "RetryCount", "MaxRetries", "ErrorMessage", "GcpBatchJobPath", "GcpBatchTaskGroup", "EnvVarsJson", "Name", "ResourceProfile", "MachineType", "BootDiskSizeGb", "UseSpotVms", "ServiceAccount", "ServiceTier", "AssignedService", "MemoryMib", "CpuMillis", "MaxRunDurationSeconds", "OwnerWorkerId", "PreferredWorkerId", "LeaseExpiresAt", "LastHeartbeatAt"},
 	)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get job: %w", err)
@@ -66,7 +68,7 @@ func (c *Client) GetJob(ctx context.Context, tenantID, jobID string) (*Job, erro
 // ListJobs returns all jobs for a tenant
 func (c *Client) ListJobs(ctx context.Context, tenantID string) ([]*Job, error) {
 	stmt := spanner.Statement{
-		SQL: `SELECT TenantId, JobId, Status, ImageUri, Commands, CreatedAt, UpdatedAt, ScheduledAt, StartedAt, CompletedAt, RetryCount, MaxRetries, ErrorMessage, GcpBatchJobPath, GcpBatchTaskGroup, EnvVarsJson, Name, ResourceProfile, MachineType, BootDiskSizeGb, UseSpotVms, ServiceAccount, ServiceTier, OwnerWorkerId, PreferredWorkerId, LeaseExpiresAt, LastHeartbeatAt
+		SQL: `SELECT TenantId, JobId, Status, ImageUri, Commands, CreatedAt, UpdatedAt, ScheduledAt, StartedAt, CompletedAt, RetryCount, MaxRetries, ErrorMessage, GcpBatchJobPath, GcpBatchTaskGroup, EnvVarsJson, Name, ResourceProfile, MachineType, BootDiskSizeGb, UseSpotVms, ServiceAccount, ServiceTier, AssignedService, MemoryMib, CpuMillis, MaxRunDurationSeconds, OwnerWorkerId, PreferredWorkerId, LeaseExpiresAt, LastHeartbeatAt
 		      FROM Jobs 
 		      WHERE TenantId = @tenantId 
 		      ORDER BY CreatedAt DESC`,
@@ -101,7 +103,7 @@ func (c *Client) ListJobs(ctx context.Context, tenantID string) ([]*Job, error) 
 // ListJobsByStatus returns jobs for a tenant filtered by status
 func (c *Client) ListJobsByStatus(ctx context.Context, tenantID, status string) ([]*Job, error) {
 	stmt := spanner.Statement{
-		SQL: `SELECT TenantId, JobId, Status, ImageUri, Commands, CreatedAt, UpdatedAt, ScheduledAt, StartedAt, CompletedAt, RetryCount, MaxRetries, ErrorMessage, GcpBatchJobPath, GcpBatchTaskGroup, EnvVarsJson, Name, ResourceProfile, MachineType, BootDiskSizeGb, UseSpotVms, ServiceAccount, ServiceTier, OwnerWorkerId, PreferredWorkerId, LeaseExpiresAt, LastHeartbeatAt
+		SQL: `SELECT TenantId, JobId, Status, ImageUri, Commands, CreatedAt, UpdatedAt, ScheduledAt, StartedAt, CompletedAt, RetryCount, MaxRetries, ErrorMessage, GcpBatchJobPath, GcpBatchTaskGroup, EnvVarsJson, Name, ResourceProfile, MachineType, BootDiskSizeGb, UseSpotVms, ServiceAccount, ServiceTier, AssignedService, MemoryMib, CpuMillis, MaxRunDurationSeconds, OwnerWorkerId, PreferredWorkerId, LeaseExpiresAt, LastHeartbeatAt
 		      FROM Jobs@{FORCE_INDEX=JobsByStatus}
 		      WHERE TenantId = @tenantId AND Status = @status 
 		      ORDER BY CreatedAt DESC`,
@@ -148,12 +150,12 @@ func (c *Client) UpdateJobStatus(ctx context.Context, tenantID, jobID, status st
 	return nil
 }
 
-// UpdateJobStatusAndGcpBatchJobPath updates the status, GCP Batch job path, and service tier of a job.
-func (c *Client) UpdateJobStatusAndGcpBatchJobPath(ctx context.Context, tenantID, jobID, status, gcpBatchJobPath, serviceTier string) error {
+// UpdateJobStatusAndGcpBatchJobPath updates the status, GCP Batch job path, service tier, and assigned service of a job.
+func (c *Client) UpdateJobStatusAndGcpBatchJobPath(ctx context.Context, tenantID, jobID, status, gcpBatchJobPath, serviceTier, assignedService string) error {
 	_, err := c.client.Apply(ctx, []*spanner.Mutation{
 		spanner.Update("Jobs",
-			[]string{"TenantId", "JobId", "Status", "GcpBatchJobPath", "ServiceTier", "UpdatedAt"},
-			[]any{tenantID, jobID, status, gcpBatchJobPath, serviceTier, spanner.CommitTimestamp},
+			[]string{"TenantId", "JobId", "Status", "GcpBatchJobPath", "ServiceTier", "AssignedService", "UpdatedAt"},
+			[]any{tenantID, jobID, status, gcpBatchJobPath, serviceTier, assignedService, spanner.CommitTimestamp},
 		),
 	})
 	if err != nil {
@@ -251,7 +253,7 @@ func (c *Client) DeleteJob(ctx context.Context, tenantID, jobID string) error {
 // ListActiveJobs returns all active (non-terminal) jobs across tenants that have a cloud resource path.
 func (c *Client) ListActiveJobs(ctx context.Context) ([]*Job, error) {
 	stmt := spanner.Statement{
-		SQL: `SELECT TenantId, JobId, Status, ImageUri, Commands, CreatedAt, UpdatedAt, ScheduledAt, StartedAt, CompletedAt, RetryCount, MaxRetries, ErrorMessage, GcpBatchJobPath, GcpBatchTaskGroup, EnvVarsJson, Name, ResourceProfile, MachineType, BootDiskSizeGb, UseSpotVms, ServiceAccount, ServiceTier, OwnerWorkerId, PreferredWorkerId, LeaseExpiresAt, LastHeartbeatAt
+		SQL: `SELECT TenantId, JobId, Status, ImageUri, Commands, CreatedAt, UpdatedAt, ScheduledAt, StartedAt, CompletedAt, RetryCount, MaxRetries, ErrorMessage, GcpBatchJobPath, GcpBatchTaskGroup, EnvVarsJson, Name, ResourceProfile, MachineType, BootDiskSizeGb, UseSpotVms, ServiceAccount, ServiceTier, AssignedService, MemoryMib, CpuMillis, MaxRunDurationSeconds, OwnerWorkerId, PreferredWorkerId, LeaseExpiresAt, LastHeartbeatAt
 		      FROM Jobs
 		      WHERE Status IN (@pending, @scheduled, @running)
 		        AND GcpBatchJobPath IS NOT NULL

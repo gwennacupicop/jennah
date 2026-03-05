@@ -130,6 +130,14 @@ message Job {
   bool use_spot_vms = 21;
   // Custom service account email (optional).
   string service_account = 22;
+  // Complexity tier assigned by the routing classifier: SIMPLE or COMPLEX.
+  string complexity_level = 23;
+  // GCP service assigned to execute this job: CLOUD_RUN_JOB or CLOUD_BATCH.
+  string assigned_service = 24;
+  // Resource override values saved at submission time.
+  int64 memory_mib = 25;
+  int64 cpu_millis = 26;
+  int64 max_run_duration_seconds = 27;
 }
 
 message GetCurrentTenantRequest {

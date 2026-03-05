@@ -524,8 +524,16 @@ type Job struct {
 	UseSpotVms bool `protobuf:"varint,21,opt,name=use_spot_vms,json=useSpotVms,proto3" json:"use_spot_vms,omitempty"`
 	// Custom service account email (optional).
 	ServiceAccount string `protobuf:"bytes,22,opt,name=service_account,json=serviceAccount,proto3" json:"service_account,omitempty"`
-	unknownFields  protoimpl.UnknownFields
-	sizeCache      protoimpl.SizeCache
+	// Complexity tier assigned by the routing classifier: SIMPLE or COMPLEX.
+	ComplexityLevel string `protobuf:"bytes,23,opt,name=complexity_level,json=complexityLevel,proto3" json:"complexity_level,omitempty"`
+	// GCP service assigned to execute this job: CLOUD_RUN_JOB or CLOUD_BATCH.
+	AssignedService string `protobuf:"bytes,24,opt,name=assigned_service,json=assignedService,proto3" json:"assigned_service,omitempty"`
+	// Resource override values saved at submission time.
+	MemoryMib             int64 `protobuf:"varint,25,opt,name=memory_mib,json=memoryMib,proto3" json:"memory_mib,omitempty"`
+	CpuMillis             int64 `protobuf:"varint,26,opt,name=cpu_millis,json=cpuMillis,proto3" json:"cpu_millis,omitempty"`
+	MaxRunDurationSeconds int64 `protobuf:"varint,27,opt,name=max_run_duration_seconds,json=maxRunDurationSeconds,proto3" json:"max_run_duration_seconds,omitempty"`
+	unknownFields         protoimpl.UnknownFields
+	sizeCache             protoimpl.SizeCache
 }
 
 func (x *Job) Reset() {
@@ -710,6 +718,41 @@ func (x *Job) GetServiceAccount() string {
 		return x.ServiceAccount
 	}
 	return ""
+}
+
+func (x *Job) GetComplexityLevel() string {
+	if x != nil {
+		return x.ComplexityLevel
+	}
+	return ""
+}
+
+func (x *Job) GetAssignedService() string {
+	if x != nil {
+		return x.AssignedService
+	}
+	return ""
+}
+
+func (x *Job) GetMemoryMib() int64 {
+	if x != nil {
+		return x.MemoryMib
+	}
+	return 0
+}
+
+func (x *Job) GetCpuMillis() int64 {
+	if x != nil {
+		return x.CpuMillis
+	}
+	return 0
+}
+
+func (x *Job) GetMaxRunDurationSeconds() int64 {
+	if x != nil {
+		return x.MaxRunDurationSeconds
+	}
+	return 0
 }
 
 type GetCurrentTenantRequest struct {
@@ -1133,7 +1176,7 @@ const file_proto_jennah_proto_rawDesc = "" +
 	"\x0erouting_reason\x18\x06 \x01(\tR\rroutingReason\"\x11\n" +
 	"\x0fListJobsRequest\"6\n" +
 	"\x10ListJobsResponse\x12\"\n" +
-	"\x04jobs\x18\x01 \x03(\v2\x0e.jennah.v1.JobR\x04jobs\"\xee\x05\n" +
+	"\x04jobs\x18\x01 \x03(\v2\x0e.jennah.v1.JobR\x04jobs\"\xbb\a\n" +
 	"\x03Job\x12\x15\n" +
 	"\x06job_id\x18\x01 \x01(\tR\x05jobId\x12\x1b\n" +
 	"\ttenant_id\x18\x02 \x01(\tR\btenantId\x12\x1b\n" +
@@ -1163,7 +1206,14 @@ const file_proto_jennah_proto_rawDesc = "" +
 	"\x11boot_disk_size_gb\x18\x14 \x01(\x03R\x0ebootDiskSizeGb\x12 \n" +
 	"\fuse_spot_vms\x18\x15 \x01(\bR\n" +
 	"useSpotVms\x12'\n" +
-	"\x0fservice_account\x18\x16 \x01(\tR\x0eserviceAccount\"\x19\n" +
+	"\x0fservice_account\x18\x16 \x01(\tR\x0eserviceAccount\x12)\n" +
+	"\x10complexity_level\x18\x17 \x01(\tR\x0fcomplexityLevel\x12)\n" +
+	"\x10assigned_service\x18\x18 \x01(\tR\x0fassignedService\x12\x1d\n" +
+	"\n" +
+	"memory_mib\x18\x19 \x01(\x03R\tmemoryMib\x12\x1d\n" +
+	"\n" +
+	"cpu_millis\x18\x1a \x01(\x03R\tcpuMillis\x127\n" +
+	"\x18max_run_duration_seconds\x18\x1b \x01(\x03R\x15maxRunDurationSeconds\"\x19\n" +
 	"\x17GetCurrentTenantRequest\"\x9c\x01\n" +
 	"\x18GetCurrentTenantResponse\x12\x1b\n" +
 	"\ttenant_id\x18\x01 \x01(\tR\btenantId\x12\x1d\n" +

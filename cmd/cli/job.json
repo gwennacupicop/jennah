@@ -1,8 +1,4 @@
 {
   "image_uri": "docker.io/ubuntu:22.04",
-  "resource_profile": "default",
-  "env_vars": {
-    "TEST_ENV": "production",
-    "APP_NAME": "hello-world"
-  }
+  "env_vars": {"TEST_ENV": "production", "APP_NAME": "hello-world"}
 }
