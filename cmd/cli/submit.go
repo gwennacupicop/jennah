@@ -203,6 +203,7 @@ Routing tiers (decided automatically by the gateway):
 		signal.Notify(stop, os.Interrupt, syscall.SIGTERM)
 
 		lastStatus := result.Status
+		lastGcpPath := ""
 		fmt.Printf("  [%s]  %s\n", time.Now().Format("15:04:05"), lastStatus)
 
 		terminalStates := map[string]bool{
@@ -246,6 +247,14 @@ Routing tiers (decided automatically by the gateway):
 					fmt.Println("============================================")
 					fmt.Println("Done!")
 					return nil
+				}
+				if job.GcpBatchJobPath != "" && lastGcpPath != "" && job.GcpBatchJobPath != lastGcpPath {
+					fmt.Printf("  [%s]  ⚡ Failover detected! Job moved to new worker\n", time.Now().Format("15:04:05"))
+					fmt.Printf("  [%s]     Old: %s\n", time.Now().Format("15:04:05"), lastGcpPath)
+					fmt.Printf("  [%s]     New: %s\n", time.Now().Format("15:04:05"), job.GcpBatchJobPath)
+				}
+				if job.GcpBatchJobPath != "" {
+					lastGcpPath = job.GcpBatchJobPath
 				}
 				if job.Status != lastStatus {
 					fmt.Printf("  [%s]  %s → %s\n", time.Now().Format("15:04:05"), lastStatus, job.Status)
