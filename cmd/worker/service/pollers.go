@@ -11,6 +11,7 @@ import (
 
 	batch "github.com/alphauslabs/jennah/internal/cloudexec"
 	"github.com/alphauslabs/jennah/internal/database"
+	"github.com/alphauslabs/jennah/internal/router"
 )
 
 // JobPoller manages polling of a single job's status from the batch provider.
@@ -20,6 +21,7 @@ type JobPoller struct {
 	gcpResourcePath   string
 	currentStatus     string
 	serviceTier       string
+	assignedService   router.AssignedService
 	batchProvider     batch.Provider
 	dbClient          *database.Client
 	ticker            *time.Ticker
@@ -32,7 +34,40 @@ type JobPoller struct {
 
 // startJobPoller spawns a background goroutine to poll the batch provider for job status updates.
 func (s *WorkerService) startJobPoller(ctx context.Context, tenantID, jobID, gcpResourcePath, initialStatus, serviceTier string) {
+	s.startJobPollerWithService(ctx, tenantID, jobID, gcpResourcePath, initialStatus, serviceTier, router.AssignedServiceUnspecified)
+}
+
+// startJobPollerWithService spawns a background goroutine to poll the correct provider for job status updates.
+func (s *WorkerService) startJobPollerWithService(ctx context.Context, tenantID, jobID, gcpResourcePath, initialStatus, serviceTier string, assignedService router.AssignedService) {
 	pollerKey := fmt.Sprintf("%s/%s", tenantID, jobID)
+
+	// Determine the correct provider to use based on assignedService or serviceTier
+	var provider batch.Provider
+	var inferredService router.AssignedService
+
+	if assignedService == router.AssignedServiceUnspecified {
+		// Infer from service tier (for recovered jobs)
+		if serviceTier == database.ServiceTierComplex {
+			inferredService = router.AssignedServiceCloudBatch
+		} else {
+			// SIMPLE tier - default to Cloud Run (Cloud Tasks don't need polling)
+			inferredService = router.AssignedServiceCloudRunJob
+		}
+	} else {
+		inferredService = assignedService
+	}
+
+	// Get the correct provider from dispatcher
+	if s.dispatcher != nil {
+		var err error
+		provider, err = s.dispatcher.ProviderFor(inferredService)
+		if err != nil {
+			log.Printf("Failed to get provider for service %s, falling back to batchProvider: %v", inferredService, err)
+			provider = s.batchProvider
+		}
+	} else {
+		provider = s.batchProvider
+	}
 
 	poller := &JobPoller{
 		tenantID:          tenantID,
@@ -40,7 +75,8 @@ func (s *WorkerService) startJobPoller(ctx context.Context, tenantID, jobID, gcp
 		gcpResourcePath:   gcpResourcePath,
 		currentStatus:     initialStatus,
 		serviceTier:       serviceTier,
-		batchProvider:     s.batchProvider,
+		assignedService:   inferredService,
+		batchProvider:     provider,
 		dbClient:          s.dbClient,
 		pollingInterval:   5 * time.Second,
 		maxFailedAttempts: 10,
@@ -60,7 +96,7 @@ func (s *WorkerService) startJobPoller(ctx context.Context, tenantID, jobID, gcp
 	s.pollers[pollerKey] = poller
 	s.pollersMutex.Unlock()
 
-	log.Printf("Starting poller for job %s (tenant: %s)", jobID, tenantID)
+	log.Printf("Starting poller for job %s (tenant: %s, service: %s, provider: %s)", jobID, tenantID, inferredService, provider.ServiceType())
 
 	// Start polling in background with a new context (independent of request lifecycle).
 	go poller.poll(context.Background(), s, pollerKey)
@@ -95,7 +131,30 @@ func (poller *JobPoller) poll(ctx context.Context, server *WorkerService, poller
 			status, err := poller.batchProvider.GetJobStatus(ctx, poller.gcpResourcePath)
 			if err != nil {
 				poller.failedAttempts++
-				log.Printf("Error polling job %s (attempt %d/%d): %v", poller.jobID, poller.failedAttempts, poller.maxFailedAttempts, err)
+				log.Printf("Error polling job %s (attempt %d/%d) [service=%s, tier=%s, path=%s]: %v", 
+					poller.jobID, poller.failedAttempts, poller.maxFailedAttempts, 
+					poller.assignedService, poller.serviceTier, poller.gcpResourcePath, err)
+
+				// If this is a SIMPLE tier job failing with Cloud Run provider, it might actually be a Cloud Batch job
+				// (e.g., created before the dispatcher was implemented). Try falling back to Cloud Batch.
+				if poller.serviceTier == database.ServiceTierSimple && poller.assignedService == router.AssignedServiceCloudRunJob {
+					if server.dispatcher != nil {
+						if batchProvider, err := server.dispatcher.ProviderFor(router.AssignedServiceCloudBatch); err == nil {
+							log.Printf("Retrying job %s with Cloud Batch provider (fallback)", poller.jobID)
+							status, err = batchProvider.GetJobStatus(ctx, poller.gcpResourcePath)
+							if err == nil {
+								// Success! Update the poller to use Cloud Batch going forward
+								log.Printf("Job %s is actually a Cloud Batch job, updating poller", poller.jobID)
+								poller.batchProvider = batchProvider
+								poller.assignedService = router.AssignedServiceCloudBatch
+								poller.failedAttempts = 0 // Reset since we found the right provider
+								// Don't continue; process the status below
+								goto processStatus
+							}
+							log.Printf("Cloud Batch fallback also failed for job %s: %v", poller.jobID, err)
+						}
+					}
+				}
 
 				if poller.failedAttempts >= poller.maxFailedAttempts {
 					log.Printf("Max failed attempts reached for job %s, stopping poller", poller.jobID)
@@ -105,6 +164,7 @@ func (poller *JobPoller) poll(ctx context.Context, server *WorkerService, poller
 				continue
 			}
 
+		processStatus:
 			poller.failedAttempts = 0 // Reset on successful poll.
 
 			// Convert batch provider status to database status.
@@ -227,10 +287,8 @@ func (s *WorkerService) reconcileActiveJobLeases(ctx context.Context, startup bo
 			continue
 		}
 
-		// Skip Cloud Tasks jobs (SIMPLE tier) — they don't need polling.
-		if ptrToString(job.ServiceTier) == database.ServiceTierSimple {
-			continue
-		}
+		// Note: We don't skip SIMPLE tier jobs anymore because Cloud Run jobs need polling.
+		// Cloud Tasks jobs are rare and will just fail polling gracefully if encountered.
 
 		owned, err := s.dbClient.TryClaimOrRenewJobLease(ctx, job.TenantId, job.JobId, s.workerID, time.Now().UTC().Add(s.leaseTTL))
 		if err != nil {

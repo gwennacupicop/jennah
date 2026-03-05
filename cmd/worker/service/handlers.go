@@ -212,8 +212,11 @@ func (s *WorkerService) SubmitJob(
 	}
 	log.Printf("Job %s status updated to %s with GCP Batch job path: %s", internalJobID, statusToSet, jobResult.CloudResourcePath)
 
+	// Give GCP Batch a moment to fully initialize the job before polling
+	time.Sleep(2 * time.Second)
+
 	// Start background polling goroutine to track job status.
-	s.startJobPoller(ctx, tenantID, internalJobID, jobResult.CloudResourcePath, statusToSet, serviceTierFromPlan(plan))
+	s.startJobPollerWithService(ctx, tenantID, internalJobID, jobResult.CloudResourcePath, statusToSet, serviceTierFromPlan(plan), plan.AssignedService)
 
 	response := connect.NewResponse(&jennahv1.SubmitJobResponse{
 		JobId:  internalJobID,

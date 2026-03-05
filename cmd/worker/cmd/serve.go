@@ -65,31 +65,8 @@ func runServe(cmd *cobra.Command, args []string) error {
 		dispatcher.WithCloudBatch(batchProvider),
 	}
 
-	// Cloud Tasks provider (SIMPLE jobs) — optional, enabled via CLOUD_TASKS_TARGET_URL.
-	cloudTasksTargetURL := os.Getenv("CLOUD_TASKS_TARGET_URL")
-	if cloudTasksTargetURL != "" {
-		ctConfig := batch.ProviderConfig{
-			Provider:  "gcp-cloudtasks",
-			ProjectID: cfg.BatchProvider.ProjectID,
-			Region:    cfg.BatchProvider.Region,
-			ProviderOptions: map[string]string{
-				"target_url":      cloudTasksTargetURL,
-				"queue_id":        os.Getenv("CLOUD_TASKS_QUEUE_ID"),
-				"service_account": os.Getenv("CLOUD_TASKS_SERVICE_ACCOUNT"),
-			},
-		}
-		ctProvider, err := batch.NewProvider(ctx, ctConfig)
-		if err != nil {
-			log.Printf("Warning: failed to create Cloud Tasks provider: %v (SIMPLE jobs will fail)", err)
-		} else {
-			dispatcherOpts = append(dispatcherOpts, dispatcher.WithCloudTasks(ctProvider))
-			log.Println("Initialized Cloud Tasks provider for SIMPLE jobs")
-		}
-	} else {
-		log.Println("Cloud Tasks provider not configured (set CLOUD_TASKS_TARGET_URL to enable)")
-	}
-
-	// Cloud Run Jobs provider (MEDIUM jobs) — optional, enabled via CLOUD_RUN_ENABLED=true.
+	// Cloud Run Jobs provider (SIMPLE + MEDIUM jobs) — required for non-COMPLEX workloads.
+	// Enable via CLOUD_RUN_ENABLED=true. Without it, all SIMPLE jobs will fail.
 	if os.Getenv("CLOUD_RUN_ENABLED") == "true" {
 		crConfig := batch.ProviderConfig{
 			Provider:        "gcp-cloudrun",
@@ -99,13 +76,13 @@ func runServe(cmd *cobra.Command, args []string) error {
 		}
 		crProvider, err := batch.NewProvider(ctx, crConfig)
 		if err != nil {
-			log.Printf("Warning: failed to create Cloud Run Jobs provider: %v (MEDIUM jobs will fail)", err)
+			log.Printf("Warning: failed to create Cloud Run Jobs provider: %v (SIMPLE jobs will fail)", err)
 		} else {
 			dispatcherOpts = append(dispatcherOpts, dispatcher.WithCloudRunJobs(crProvider))
-			log.Println("Initialized Cloud Run Jobs provider for MEDIUM jobs")
+			log.Println("Initialized Cloud Run Jobs provider for SIMPLE/MEDIUM jobs")
 		}
 	} else {
-		log.Println("Cloud Run Jobs provider not configured (set CLOUD_RUN_ENABLED=true to enable)")
+		log.Println("WARNING: Cloud Run Jobs provider not configured (set CLOUD_RUN_ENABLED=true) — SIMPLE jobs will be rejected")
 	}
 
 	d, err := dispatcher.New(dispatcherOpts...)
