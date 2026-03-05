@@ -78,6 +78,18 @@ Routing tiers (decided automatically by the gateway):
 			body["useSpotVms"] = true
 		}
 
+		// --instances: inject JENNAH_TASK_COUNT + JENNAH_PARALLELISM into envVars
+		if instances, _ := cmd.Flags().GetInt64("instances"); instances > 1 {
+			envVars, _ := body["envVars"].(map[string]interface{})
+			if envVars == nil {
+				envVars = map[string]interface{}{}
+			}
+			instancesStr := fmt.Sprintf("%d", instances)
+			envVars["JENNAH_TASK_COUNT"] = instancesStr
+			envVars["JENNAH_PARALLELISM"] = instancesStr
+			body["envVars"] = envVars
+		}
+
 		// resource_override sub-object (merges with existing if present)
 		memMib, _ := cmd.Flags().GetInt64("memory-mib")
 		cpuMillis, _ := cmd.Flags().GetInt64("cpu-millis")
@@ -116,6 +128,9 @@ Routing tiers (decided automatically by the gateway):
 		}
 		if machineType != "" {
 			fmt.Printf("Machine Type: %s\n", machineType)
+		}
+		if instances, _ := cmd.Flags().GetInt64("instances"); instances > 1 {
+			fmt.Printf("Instances:    %d\n", instances)
 		}
 		fmt.Println()
 
@@ -284,4 +299,5 @@ func init() {
 	submitCmd.Flags().String("name", "", "Optional human-readable job name")
 	submitCmd.Flags().String("service-account", "", "Custom GCP service account email")
 	submitCmd.Flags().Bool("spot", false, "Use Spot VMs (cheaper, preemptible)")
+	submitCmd.Flags().Int64("instances", 0, "Number of parallel instances (e.g. 4) — sets JENNAH_TASK_COUNT")
 }
