@@ -16,8 +16,8 @@ import (
 
 	"github.com/alphauslabs/jennah/cmd/worker/service"
 	"github.com/alphauslabs/jennah/gen/proto/jennahv1connect"
-	"github.com/alphauslabs/jennah/internal/batch"
-	_ "github.com/alphauslabs/jennah/internal/batch/gcp" // Register GCP providers (Cloud Batch, Cloud Tasks, Cloud Run)
+	batch "github.com/alphauslabs/jennah/internal/cloudexec"
+	_ "github.com/alphauslabs/jennah/internal/cloudexec/gcp" // Register GCP providers (Cloud Batch, Cloud Tasks, Cloud Run)
 	"github.com/alphauslabs/jennah/internal/config"
 	"github.com/alphauslabs/jennah/internal/database"
 	"github.com/alphauslabs/jennah/internal/dispatcher"
@@ -73,8 +73,9 @@ func runServe(cmd *cobra.Command, args []string) error {
 			ProjectID: cfg.BatchProvider.ProjectID,
 			Region:    cfg.BatchProvider.Region,
 			ProviderOptions: map[string]string{
-				"target_url": cloudTasksTargetURL,
-				"queue_id":   os.Getenv("CLOUD_TASKS_QUEUE_ID"),
+				"target_url":      cloudTasksTargetURL,
+				"queue_id":        os.Getenv("CLOUD_TASKS_QUEUE_ID"),
+				"service_account": os.Getenv("CLOUD_TASKS_SERVICE_ACCOUNT"),
 			},
 		}
 		ctProvider, err := batch.NewProvider(ctx, ctConfig)

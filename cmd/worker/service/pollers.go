@@ -9,7 +9,7 @@ import (
 
 	"github.com/google/uuid"
 
-	"github.com/alphauslabs/jennah/internal/batch"
+	batch "github.com/alphauslabs/jennah/internal/cloudexec"
 	"github.com/alphauslabs/jennah/internal/database"
 )
 
@@ -19,6 +19,7 @@ type JobPoller struct {
 	jobID             string
 	gcpResourcePath   string
 	currentStatus     string
+	serviceTier       string
 	batchProvider     batch.Provider
 	dbClient          *database.Client
 	ticker            *time.Ticker
@@ -30,7 +31,7 @@ type JobPoller struct {
 }
 
 // startJobPoller spawns a background goroutine to poll the batch provider for job status updates.
-func (s *WorkerService) startJobPoller(ctx context.Context, tenantID, jobID, gcpResourcePath, initialStatus string) {
+func (s *WorkerService) startJobPoller(ctx context.Context, tenantID, jobID, gcpResourcePath, initialStatus, serviceTier string) {
 	pollerKey := fmt.Sprintf("%s/%s", tenantID, jobID)
 
 	poller := &JobPoller{
@@ -38,6 +39,7 @@ func (s *WorkerService) startJobPoller(ctx context.Context, tenantID, jobID, gcp
 		jobID:             jobID,
 		gcpResourcePath:   gcpResourcePath,
 		currentStatus:     initialStatus,
+		serviceTier:       serviceTier,
 		batchProvider:     s.batchProvider,
 		dbClient:          s.dbClient,
 		pollingInterval:   5 * time.Second,
@@ -225,6 +227,11 @@ func (s *WorkerService) reconcileActiveJobLeases(ctx context.Context, startup bo
 			continue
 		}
 
+		// Skip Cloud Tasks jobs (SIMPLE tier) — they don't need polling.
+		if ptrToString(job.ServiceTier) == database.ServiceTierSimple {
+			continue
+		}
+
 		owned, err := s.dbClient.TryClaimOrRenewJobLease(ctx, job.TenantId, job.JobId, s.workerID, time.Now().UTC().Add(s.leaseTTL))
 		if err != nil {
 			log.Printf("Lease claim failed for job %s: %v", job.JobId, err)
@@ -235,7 +242,7 @@ func (s *WorkerService) reconcileActiveJobLeases(ctx context.Context, startup bo
 			continue
 		}
 
-		s.startJobPoller(ctx, job.TenantId, job.JobId, *job.GcpBatchJobPath, job.Status)
+		s.startJobPoller(ctx, job.TenantId, job.JobId, *job.GcpBatchJobPath, job.Status, ptrToString(job.ServiceTier))
 		claimedCount++
 	}
 
@@ -278,4 +285,12 @@ func isCancellableStatus(status string) bool {
 	return status == database.JobStatusPending ||
 		status == database.JobStatusScheduled ||
 		status == database.JobStatusRunning
+}
+
+// ptrToString safely dereferences a *string, returning "" if nil.
+func ptrToString(s *string) string {
+	if s == nil {
+		return ""
+	}
+	return *s
 }

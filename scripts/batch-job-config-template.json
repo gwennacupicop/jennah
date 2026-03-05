@@ -1,0 +1,55 @@
+{
+  "taskGroups": [
+    {
+      "taskCount": 4,
+      "parallelism": 4,
+      "taskSpec": {
+        "runnables": [
+          {
+            "container": {
+              "imageUri": "REPLACE_WITH_YOUR_IMAGE_URI",
+              "entrypoint": "/app/demo-job"
+            },
+            "environment": {
+              "variables": {
+                "INPUT_DATA_PATH": "gs://REPLACE_PROJECT_BUCKET/input/test-data.txt",
+                "INPUT_DATA_SIZE": "524288000",
+                "OUTPUT_BASE_PATH": "gs://REPLACE_PROJECT_BUCKET/output",
+                "JOB_ID": "phase5-demo-001",
+                "DISTRIBUTION_MODE": "BYTE_RANGE",
+                "ENABLE_DISTRIBUTED_MODE": "true"
+              }
+            }
+          }
+        ],
+        "computeResource": {
+          "cpuMilli": 1000,
+          "memoryMib": 512
+        },
+        "maxRetries": 1,
+        "maxRunDuration": "3600s"
+      }
+    }
+  ],
+  "allocationPolicy": {
+    "instances": [
+      {
+        "templates": [
+          {
+            "machineType": "n1-standard-1",
+            "provisioningModel": "SPOT"
+          }
+        ]
+      }
+    ],
+    "location": {
+      "allowedLocations": [
+        "regions/us-central1"
+      ]
+    }
+  },
+  "logsPolicy": {
+    "destination": "CLOUD_LOGGING"
+  },
+  "serviceAccount": "projects/REPLACE_PROJECT_ID/serviceAccounts/gcp-sa-dev-interns@REPLACE_PROJECT_ID.iam.gserviceaccount.com"
+}

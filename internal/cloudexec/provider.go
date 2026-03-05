@@ -43,6 +43,10 @@ type JobConfig struct {
 	// Defaults to the internal job UUID.
 	RequestID string
 
+	// TenantID is the owning tenant's UUID. Needed by Cloud Tasks so the
+	// callback handler can locate the job in Spanner (interleaved key).
+	TenantID string
+
 	// Name is the optional user-facing job label from SubmitJobRequest.name.
 	Name string
 

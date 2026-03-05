@@ -27,21 +27,21 @@ func TestSimple_NoResources(t *testing.T) {
 	// A bare job with no resource overrides and no machine type.
 	req := &jennahv1.SubmitJobRequest{ImageUri: "gcr.io/project/echo:latest"}
 	got := EvaluateJobComplexity(req)
-	assertTier(t, "no-resource job", got, ComplexitySimple, AssignedServiceCloudTasks)
+	assertTier(t, "no-resource job", got, ComplexitySimple, AssignedServiceCloudRunJob)
 }
 
 func TestSimple_LowResources(t *testing.T) {
 	// cpu=250m, mem=256MiB, duration=300s — all within SIMPLE bounds.
 	req := makeReq("", 250, 256, 300)
 	got := EvaluateJobComplexity(req)
-	assertTier(t, "low-resource SIMPLE job", got, ComplexitySimple, AssignedServiceCloudTasks)
+	assertTier(t, "low-resource SIMPLE job", got, ComplexitySimple, AssignedServiceCloudRunJob)
 }
 
 func TestSimple_AtThreshold(t *testing.T) {
 	// Exactly on the threshold values should still be SIMPLE (not exceeding them).
 	req := makeReq("", SimpleCPUMillisMax, SimpleMemoryMiBMax, SimpleDurationSecMax)
 	got := EvaluateJobComplexity(req)
-	assertTier(t, "at-threshold SIMPLE job", got, ComplexitySimple, AssignedServiceCloudTasks)
+	assertTier(t, "at-threshold SIMPLE job", got, ComplexitySimple, AssignedServiceCloudRunJob)
 }
 
 func TestSimple_NilResourceOverride(t *testing.T) {
@@ -51,7 +51,7 @@ func TestSimple_NilResourceOverride(t *testing.T) {
 		ResourceOverride: nil,
 	}
 	got := EvaluateJobComplexity(req)
-	assertTier(t, "nil resource-override SIMPLE job", got, ComplexitySimple, AssignedServiceCloudTasks)
+	assertTier(t, "nil resource-override SIMPLE job", got, ComplexitySimple, AssignedServiceCloudRunJob)
 }
 
 // ---------------------------------------------------------------------------

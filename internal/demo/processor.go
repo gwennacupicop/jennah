@@ -85,20 +85,21 @@ func (p *Processor) Process(ctx context.Context) (*ProcessMetrics, error) {
 
 // processReader reads from the given range and counts lines/words
 func (p *Processor) processReader(ctx context.Context, reader io.Reader, br *ByteRange, m *ProcessMetrics) error {
-	// Seek to start byte
-	file, ok := reader.(*os.File)
-	if !ok {
-		return fmt.Errorf("reader must be a file")
-	}
+	var limitedReader io.Reader
 
-	_, err := file.Seek(br.StartByte, io.SeekStart)
-	if err != nil {
-		p.errorHandler.HandleError(ErrProcessing, err)
-		return fmt.Errorf("seek to byte %d failed: %w", br.StartByte, err)
+	// For local files, seek to start byte and create limited reader.
+	// For GCS/other readers, the byte range is already handled by the range reader.
+	if file, ok := reader.(*os.File); ok {
+		_, err := file.Seek(br.StartByte, io.SeekStart)
+		if err != nil {
+			p.errorHandler.HandleError(ErrProcessing, err)
+			return fmt.Errorf("seek to byte %d failed: %w", br.StartByte, err)
+		}
+		limitedReader = io.LimitReader(file, br.Size())
+	} else {
+		// GCS range reader already returns only the requested byte range
+		limitedReader = reader
 	}
-
-	// Create limited reader for the byte range
-	limitedReader := io.LimitReader(file, br.Size())
 
 	// Count lines and words
 	scanner := bufio.NewScanner(limitedReader)

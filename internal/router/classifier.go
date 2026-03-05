@@ -172,10 +172,10 @@ func EvaluateJobComplexity(req *jennahv1.SubmitJobRequest) RoutingDecision {
 		}
 	}
 
-	// --- Rule 4: everything else → SIMPLE ---
+	// --- Rule 4: everything else → SIMPLE (Cloud Run Jobs) ---
 	return RoutingDecision{
-		Complexity:      ComplexitySimple,
-		AssignedService: AssignedServiceCloudTasks,
+			Complexity:      ComplexitySimple,
+			AssignedService: AssignedServiceCloudRunJob,
 		Reason:          "no machine type, resources within simple thresholds",
 	}
 }

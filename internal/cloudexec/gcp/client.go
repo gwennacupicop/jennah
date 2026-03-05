@@ -9,7 +9,7 @@ import (
 	"cloud.google.com/go/batch/apiv1/batchpb"
 	"google.golang.org/protobuf/types/known/durationpb"
 
-	batchpkg "github.com/alphauslabs/jennah/internal/batch"
+	batchpkg "github.com/alphauslabs/jennah/internal/cloudexec"
 )
 
 func init() {

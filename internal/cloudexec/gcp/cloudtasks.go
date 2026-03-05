@@ -9,7 +9,7 @@ import (
 	cloudtasks "cloud.google.com/go/cloudtasks/apiv2"
 	taskspb "cloud.google.com/go/cloudtasks/apiv2/cloudtaskspb"
 
-	batchpkg "github.com/alphauslabs/jennah/internal/batch"
+	batchpkg "github.com/alphauslabs/jennah/internal/cloudexec"
 )
 
 func init() {
@@ -30,6 +30,9 @@ type GCPCloudTasksProvider struct {
 	queueID string
 	// targetURL is the HTTP endpoint that will process the task.
 	targetURL string
+	// serviceAccount is the default GCP service account email used for OIDC
+	// authentication when the per-job config does not specify one.
+	serviceAccount string
 }
 
 // ServiceType returns the service type identifier for Cloud Tasks.
@@ -61,21 +64,29 @@ func NewGCPCloudTasksProvider(ctx context.Context, config batchpkg.ProviderConfi
 		return nil, fmt.Errorf("target_url is required in ProviderOptions for Cloud Tasks provider")
 	}
 
+	serviceAccount := config.ProviderOptions["service_account"]
+	if serviceAccount == "" {
+		return nil, fmt.Errorf("service_account is required in ProviderOptions for Cloud Tasks provider (set CLOUD_TASKS_SERVICE_ACCOUNT)")
+	}
+
 	return &GCPCloudTasksProvider{
-		client:    client,
-		projectID: config.ProjectID,
-		region:    config.Region,
-		queueID:   queueID,
-		targetURL: targetURL,
+		client:         client,
+		projectID:      config.ProjectID,
+		region:         config.Region,
+		queueID:        queueID,
+		targetURL:      targetURL,
+		serviceAccount: serviceAccount,
 	}, nil
 }
 
 // taskPayload is the JSON payload sent to the target HTTP endpoint.
 type taskPayload struct {
-	JobID    string            `json:"job_id"`
-	ImageURI string            `json:"image_uri"`
-	Commands []string          `json:"commands,omitempty"`
-	EnvVars  map[string]string `json:"env_vars,omitempty"`
+	JobID     string            `json:"job_id"`
+	RequestID string            `json:"request_id"`
+	TenantID  string            `json:"tenant_id"`
+	ImageURI  string            `json:"image_uri"`
+	Commands  []string          `json:"commands,omitempty"`
+	EnvVars   map[string]string `json:"env_vars,omitempty"`
 }
 
 // SubmitJob submits a new task to GCP Cloud Tasks.
@@ -86,10 +97,11 @@ func (p *GCPCloudTasksProvider) SubmitJob(ctx context.Context, config batchpkg.J
 		p.projectID, p.region, p.queueID)
 
 	payload := taskPayload{
-		JobID:    config.JobID,
-		ImageURI: config.ImageURI,
-		Commands: config.Commands,
-		EnvVars:  config.EnvVars,
+		JobID:     config.JobID,
+		RequestID: config.RequestID,
+		ImageURI:  config.ImageURI,
+		Commands:  config.Commands,
+		EnvVars:   config.EnvVars,
 	}
 
 	body, err := json.Marshal(payload)
@@ -108,7 +120,7 @@ func (p *GCPCloudTasksProvider) SubmitJob(ctx context.Context, config batchpkg.J
 					Body:       body,
 					AuthorizationHeader: &taskspb.HttpRequest_OidcToken{
 						OidcToken: &taskspb.OidcToken{
-							ServiceAccountEmail: config.ServiceAccount,
+							ServiceAccountEmail: p.resolveServiceAccount(config.ServiceAccount),
 						},
 					},
 				},
@@ -127,6 +139,15 @@ func (p *GCPCloudTasksProvider) SubmitJob(ctx context.Context, config batchpkg.J
 		CloudResourcePath: task.GetName(),
 		InitialStatus:     batchpkg.JobStatusPending,
 	}, nil
+}
+
+// resolveServiceAccount returns the per-job service account if provided,
+// otherwise falls back to the provider-level default.
+func (p *GCPCloudTasksProvider) resolveServiceAccount(perJob string) string {
+	if perJob != "" {
+		return perJob
+	}
+	return p.serviceAccount
 }
 
 // GetJobStatus retrieves the current status of a Cloud Tasks task.

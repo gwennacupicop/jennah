@@ -19,7 +19,7 @@ import (
 	"fmt"
 
 	jennahv1 "github.com/alphauslabs/jennah/gen/proto"
-	"github.com/alphauslabs/jennah/internal/batch"
+	batch "github.com/alphauslabs/jennah/internal/cloudexec"
 	"github.com/alphauslabs/jennah/internal/config"
 	"github.com/alphauslabs/jennah/internal/router"
 )

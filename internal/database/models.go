@@ -36,6 +36,7 @@ type Job struct {
 	BootDiskSizeGb    *int64     `spanner:"BootDiskSizeGb"`
 	UseSpotVms        *bool      `spanner:"UseSpotVms"`
 	ServiceAccount    *string    `spanner:"ServiceAccount"`
+	ServiceTier       *string    `spanner:"ServiceTier"`
 	OwnerWorkerId     *string    `spanner:"OwnerWorkerId"`
 	PreferredWorkerId *string    `spanner:"PreferredWorkerId"`
 	LeaseExpiresAt    *time.Time `spanner:"LeaseExpiresAt"`
@@ -61,4 +62,12 @@ const (
 	JobStatusCompleted = "COMPLETED"
 	JobStatusFailed    = "FAILED"
 	JobStatusCancelled = "CANCELLED"
+)
+
+// ServiceTier constants indicate which GCP service executes the job.
+// SIMPLE covers all lightweight jobs (Cloud Run Jobs).
+// COMPLEX covers heavy/GPU/long-running jobs (Cloud Batch).
+const (
+	ServiceTierSimple  = "SIMPLE"  // Cloud Run Jobs
+	ServiceTierComplex = "COMPLEX" // Cloud Batch
 )

@@ -7,12 +7,11 @@
 package jennahv1
 
 import (
+	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
+	protoimpl "google.golang.org/protobuf/runtime/protoimpl"
 	reflect "reflect"
 	sync "sync"
 	unsafe "unsafe"
-
-	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
-	protoimpl "google.golang.org/protobuf/runtime/protoimpl"
 )
 
 const (
@@ -28,12 +27,9 @@ type ComplexityLevel int32
 
 const (
 	ComplexityLevel_COMPLEXITY_LEVEL_UNSPECIFIED ComplexityLevel = 0
-	// SIMPLE: no machine type, very low CPU/memory, short duration (<= 10 min).
-	// Routes to Cloud Tasks.
-	ComplexityLevel_COMPLEXITY_LEVEL_SIMPLE ComplexityLevel = 1
-	// MEDIUM: no specific machine type, moderate resources, duration <= 1 hour.
+	// SIMPLE: no machine type, low-to-moderate CPU/memory/duration.
 	// Routes to Cloud Run Jobs.
-	ComplexityLevel_COMPLEXITY_LEVEL_MEDIUM ComplexityLevel = 2
+	ComplexityLevel_COMPLEXITY_LEVEL_SIMPLE ComplexityLevel = 1
 	// COMPLEX: specific machine type requested, heavy resources, or long duration.
 	// Routes to Cloud Batch.
 	ComplexityLevel_COMPLEXITY_LEVEL_COMPLEX ComplexityLevel = 3
@@ -44,13 +40,11 @@ var (
 	ComplexityLevel_name = map[int32]string{
 		0: "COMPLEXITY_LEVEL_UNSPECIFIED",
 		1: "COMPLEXITY_LEVEL_SIMPLE",
-		2: "COMPLEXITY_LEVEL_MEDIUM",
 		3: "COMPLEXITY_LEVEL_COMPLEX",
 	}
 	ComplexityLevel_value = map[string]int32{
 		"COMPLEXITY_LEVEL_UNSPECIFIED": 0,
 		"COMPLEXITY_LEVEL_SIMPLE":      1,
-		"COMPLEXITY_LEVEL_MEDIUM":      2,
 		"COMPLEXITY_LEVEL_COMPLEX":     3,
 	}
 )
@@ -87,7 +81,6 @@ type AssignedService int32
 
 const (
 	AssignedService_ASSIGNED_SERVICE_UNSPECIFIED   AssignedService = 0
-	AssignedService_ASSIGNED_SERVICE_CLOUD_TASKS   AssignedService = 1
 	AssignedService_ASSIGNED_SERVICE_CLOUD_RUN_JOB AssignedService = 2
 	AssignedService_ASSIGNED_SERVICE_CLOUD_BATCH   AssignedService = 3
 )
@@ -96,13 +89,11 @@ const (
 var (
 	AssignedService_name = map[int32]string{
 		0: "ASSIGNED_SERVICE_UNSPECIFIED",
-		1: "ASSIGNED_SERVICE_CLOUD_TASKS",
 		2: "ASSIGNED_SERVICE_CLOUD_RUN_JOB",
 		3: "ASSIGNED_SERVICE_CLOUD_BATCH",
 	}
 	AssignedService_value = map[string]int32{
 		"ASSIGNED_SERVICE_UNSPECIFIED":   0,
-		"ASSIGNED_SERVICE_CLOUD_TASKS":   1,
 		"ASSIGNED_SERVICE_CLOUD_RUN_JOB": 2,
 		"ASSIGNED_SERVICE_CLOUD_BATCH":   3,
 	}
@@ -341,9 +332,9 @@ type SubmitJobResponse struct {
 	JobId          string                 `protobuf:"bytes,1,opt,name=job_id,json=jobId,proto3" json:"job_id,omitempty"`
 	Status         string                 `protobuf:"bytes,2,opt,name=status,proto3" json:"status,omitempty"`
 	WorkerAssigned string                 `protobuf:"bytes,3,opt,name=worker_assigned,json=workerAssigned,proto3" json:"worker_assigned,omitempty"`
-	// Complexity tier assigned by the routing classifier: SIMPLE, MEDIUM, or COMPLEX.
+	// Complexity tier assigned by the routing classifier: SIMPLE or COMPLEX.
 	ComplexityLevel string `protobuf:"bytes,4,opt,name=complexity_level,json=complexityLevel,proto3" json:"complexity_level,omitempty"`
-	// GCP service assigned to execute this job: CLOUD_TASKS, CLOUD_RUN_JOB, or CLOUD_BATCH.
+	// GCP service assigned to execute this job: CLOUD_RUN_JOB or CLOUD_BATCH.
 	AssignedService string `protobuf:"bytes,5,opt,name=assigned_service,json=assignedService,proto3" json:"assigned_service,omitempty"`
 	// Human-readable explanation of why this routing decision was made.
 	RoutingReason string `protobuf:"bytes,6,opt,name=routing_reason,json=routingReason,proto3" json:"routing_reason,omitempty"`
@@ -1194,17 +1185,15 @@ const file_proto_jennah_proto_rawDesc = "" +
 	"\rGetJobRequest\x12\x15\n" +
 	"\x06job_id\x18\x01 \x01(\tR\x05jobId\"2\n" +
 	"\x0eGetJobResponse\x12 \n" +
-	"\x03job\x18\x01 \x01(\v2\x0e.jennah.v1.JobR\x03job*\x8b\x01\n" +
+	"\x03job\x18\x01 \x01(\v2\x0e.jennah.v1.JobR\x03job*\x8d\x01\n" +
 	"\x0fComplexityLevel\x12 \n" +
 	"\x1cCOMPLEXITY_LEVEL_UNSPECIFIED\x10\x00\x12\x1b\n" +
-	"\x17COMPLEXITY_LEVEL_SIMPLE\x10\x01\x12\x1b\n" +
-	"\x17COMPLEXITY_LEVEL_MEDIUM\x10\x02\x12\x1c\n" +
-	"\x18COMPLEXITY_LEVEL_COMPLEX\x10\x03*\x9b\x01\n" +
+	"\x17COMPLEXITY_LEVEL_SIMPLE\x10\x01\x12\x1c\n" +
+	"\x18COMPLEXITY_LEVEL_COMPLEX\x10\x03\"\x04\b\x02\x10\x02*\x17COMPLEXITY_LEVEL_MEDIUM*\x9d\x01\n" +
 	"\x0fAssignedService\x12 \n" +
-	"\x1cASSIGNED_SERVICE_UNSPECIFIED\x10\x00\x12 \n" +
-	"\x1cASSIGNED_SERVICE_CLOUD_TASKS\x10\x01\x12\"\n" +
+	"\x1cASSIGNED_SERVICE_UNSPECIFIED\x10\x00\x12\"\n" +
 	"\x1eASSIGNED_SERVICE_CLOUD_RUN_JOB\x10\x02\x12 \n" +
-	"\x1cASSIGNED_SERVICE_CLOUD_BATCH\x10\x032\xcc\x03\n" +
+	"\x1cASSIGNED_SERVICE_CLOUD_BATCH\x10\x03\"\x04\b\x01\x10\x01*\x1cASSIGNED_SERVICE_CLOUD_TASKS2\xcc\x03\n" +
 	"\x11DeploymentService\x12F\n" +
 	"\tSubmitJob\x12\x1b.jennah.v1.SubmitJobRequest\x1a\x1c.jennah.v1.SubmitJobResponse\x12C\n" +
 	"\bListJobs\x12\x1a.jennah.v1.ListJobsRequest\x1a\x1b.jennah.v1.ListJobsResponse\x12[\n" +

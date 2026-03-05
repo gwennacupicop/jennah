@@ -4,7 +4,7 @@ import (
 	"context"
 	"fmt"
 
-	batchpkg "github.com/alphauslabs/jennah/internal/batch"
+	batchpkg "github.com/alphauslabs/jennah/internal/cloudexec"
 )
 
 func init() {

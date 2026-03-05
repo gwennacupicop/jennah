@@ -79,8 +79,10 @@ func NewGCSRangeReader(ctx context.Context, path string, startByte, endByte int6
 		return nil, fmt.Errorf("create GCS client: %w", err)
 	}
 
-	// Open range reader (endByte is inclusive, NewRangeReader expects exclusive end)
-	reader, err := client.Bucket(bucket).Object(key).NewRangeReader(ctx, startByte, endByte+1)
+	// Open range reader: NewRangeReader(ctx, offset, length)
+	// endByte is inclusive, so length = endByte - startByte + 1
+	length := endByte - startByte + 1
+	reader, err := client.Bucket(bucket).Object(key).NewRangeReader(ctx, startByte, length)
 	if err != nil {
 		client.Close()
 		return nil, fmt.Errorf("open GCS range reader for %s (%d-%d): %w", path, startByte, endByte, err)

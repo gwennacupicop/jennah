@@ -2,10 +2,11 @@ package navigator
 
 import (
 	"fmt"
+	"strconv"
 	"strings"
 
 	jennahv1 "github.com/alphauslabs/jennah/gen/proto"
-	"github.com/alphauslabs/jennah/internal/batch"
+	batch "github.com/alphauslabs/jennah/internal/cloudexec"
 	"github.com/alphauslabs/jennah/internal/config"
 )
 
@@ -82,6 +83,24 @@ func buildJobConfig(
 		TaskCount:        1,
 		SchedulingPolicy: "AS_SOON_AS_POSSIBLE",
 	}
+
+	// ── Distributed Workload Processing (DWP) ────────────────────────────────
+	// When the frontend enables DWP, it injects JENNAH_TASK_COUNT and
+	// JENNAH_PARALLELISM env vars. The backend reads them to configure the
+	// GCP Batch task group for multi-instance parallel processing.
+	if tc, ok := envVars["JENNAH_TASK_COUNT"]; ok {
+		if n, err := strconv.ParseInt(tc, 10, 64); err == nil && n > 0 {
+			taskGroup.TaskCount = n
+		}
+	}
+	if par, ok := envVars["JENNAH_PARALLELISM"]; ok {
+		if n, err := strconv.ParseInt(par, 10, 64); err == nil && n > 0 {
+			taskGroup.Parallelism = n
+		}
+	}
+	// Note: JENNAH_TASK_COUNT and JENNAH_PARALLELISM are intentionally kept in
+	// envVars so the stored job record still contains them. The frontend reads
+	// these to display DWP details in the job view and DWP dashboard.
 
 	return batch.JobConfig{
 		// Identity
