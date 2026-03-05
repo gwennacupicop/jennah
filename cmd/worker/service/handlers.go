@@ -9,7 +9,6 @@ import (
 	"strings"
 	"time"
 
-	batchpb "cloud.google.com/go/batch/apiv1/batchpb"
 	"connectrpc.com/connect"
 	"github.com/google/uuid"
 
@@ -314,23 +313,31 @@ func (s *WorkerService) CancelJob(
 		)
 	}
 
-	// Cancel job in GCP Batch.
+	// Cancel job in cloud provider.
 	if job.GcpBatchJobPath != nil {
-		cancelReq := &batchpb.CancelJobRequest{
-			Name: *job.GcpBatchJobPath,
-		}
-		op, err := s.gcpBatchClient.CancelJob(ctx, cancelReq)
-		if err != nil {
-			log.Printf("Error cancelling job in GCP Batch: %v", err)
-			return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("failed to cancel job in GCP Batch: %w", err))
+		// Determine which provider to use based on AssignedService.
+		// Default to Cloud Batch for backward compatibility with jobs that don't have AssignedService set.
+		assignedService := router.AssignedServiceCloudBatch
+		if job.AssignedService != nil && *job.AssignedService != "" {
+			// Parse the AssignedService string back to the enum value.
+			// Job.AssignedService is stored as a string like "CLOUD_RUN_JOB" or "CLOUD_BATCH"
+			switch *job.AssignedService {
+			case "CLOUD_RUN_JOB":
+				assignedService = router.AssignedServiceCloudRunJob
+			case "CLOUD_BATCH":
+				assignedService = router.AssignedServiceCloudBatch
+			default:
+				assignedService = router.AssignedServiceCloudBatch
+			}
 		}
 
-		_, err = op.Poll(ctx)
+		// Route to the appropriate provider.
+		err = s.dispatcher.CancelJob(ctx, assignedService, *job.GcpBatchJobPath)
 		if err != nil {
-			log.Printf("Error polling cancel operation: %v", err)
-			return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("failed to cancel operation: %w", err))
+			log.Printf("Error cancelling job in provider: %v", err)
+			return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("failed to cancel job in provider: %w", err))
 		}
-		log.Printf("Job %s cancelled in GCP Batch", jobID)
+		log.Printf("Job %s cancelled in provider (%s)", jobID, assignedService)
 	}
 
 	// Update job status to CANCELLED in database.
@@ -360,7 +367,7 @@ func (s *WorkerService) CancelJob(
 	return response, nil
 }
 
-// DeleteJob deletes a job from GCP Batch and the database.
+// DeleteJob deletes a job from the cloud provider and the database.
 func (s *WorkerService) DeleteJob(
 	ctx context.Context,
 	req *connect.Request[jennahv1.DeleteJobRequest],
@@ -385,23 +392,31 @@ func (s *WorkerService) DeleteJob(
 		return nil, connect.NewError(connect.CodeNotFound, fmt.Errorf("job not found: %w", err))
 	}
 
-	// Delete job from GCP Batch.
+	// Delete job from cloud provider (if it has a resource path).
 	if job.GcpBatchJobPath != nil {
-		deleteReq := &batchpb.DeleteJobRequest{
-			Name: *job.GcpBatchJobPath,
-		}
-		op, err := s.gcpBatchClient.DeleteJob(ctx, deleteReq)
-		if err != nil {
-			log.Printf("Error deleting job from GCP Batch: %v", err)
-			return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("failed to delete job from GCP Batch: %w", err))
+		// Determine which provider to use based on AssignedService.
+		// Default to Cloud Batch for backward compatibility with jobs that don't have AssignedService set.
+		assignedService := router.AssignedServiceCloudBatch
+		if job.AssignedService != nil && *job.AssignedService != "" {
+			// Parse the AssignedService string back to the enum value.
+			// Job.AssignedService is stored as a string like "CLOUD_RUN_JOB" or "CLOUD_BATCH"
+			switch *job.AssignedService {
+			case "CLOUD_RUN_JOB":
+				assignedService = router.AssignedServiceCloudRunJob
+			case "CLOUD_BATCH":
+				assignedService = router.AssignedServiceCloudBatch
+			default:
+				assignedService = router.AssignedServiceCloudBatch
+			}
 		}
 
-		err = op.Poll(ctx)
+		// Route to the appropriate provider.
+		err = s.dispatcher.DeleteJob(ctx, assignedService, *job.GcpBatchJobPath)
 		if err != nil {
-			log.Printf("Error polling delete operation: %v", err)
-			return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("failed to delete operation: %w", err))
+			log.Printf("Error deleting job from provider: %v", err)
+			return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("failed to delete job from provider: %w", err))
 		}
-		log.Printf("Job %s deleted from GCP Batch", jobID)
+		log.Printf("Job %s deleted from cloud provider (%s)", jobID, assignedService)
 	}
 
 	// Delete job from database (cascades to JobStateTransitions).

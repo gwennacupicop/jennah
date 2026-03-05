@@ -317,6 +317,25 @@ func (p *GCPBatchProvider) CancelJob(ctx context.Context, cloudResourcePath stri
 	return nil
 }
 
+// DeleteJob deletes a GCP Batch job.
+func (p *GCPBatchProvider) DeleteJob(ctx context.Context, cloudResourcePath string) error {
+	req := &batchpb.DeleteJobRequest{
+		Name: cloudResourcePath,
+	}
+
+	op, err := p.client.DeleteJob(ctx, req)
+	if err != nil {
+		return fmt.Errorf("failed to start delete operation: %w", err)
+	}
+
+	// Wait for deletion to complete
+	if err := op.Wait(ctx); err != nil {
+		return fmt.Errorf("delete operation failed: %w", err)
+	}
+
+	return nil
+}
+
 // ListJobs lists all jobs in the GCP project/region.
 func (p *GCPBatchProvider) ListJobs(ctx context.Context) ([]string, error) {
 	parent := fmt.Sprintf("projects/%s/locations/%s", p.projectID, p.region)
