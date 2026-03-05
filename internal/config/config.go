@@ -13,11 +13,33 @@ type Config struct {
 	// ServerPort is the port the worker listens on.
 	ServerPort string
 
-	// BatchProvider configuration for cloud batch service.
+	// BatchProvider configuration for cloud batch service (primary provider).
 	BatchProvider batch.ProviderConfig
+
+	// CloudRun configuration for Cloud Run Jobs provider (for SIMPLE/MEDIUM workloads).
+	CloudRun CloudRunConfig
 
 	// Database configuration.
 	Database DatabaseConfig
+}
+
+// CloudRunConfig contains Cloud Run Jobs provider configuration.
+type CloudRunConfig struct {
+	// Enabled determines whether Cloud Run Jobs provider is initialized.
+	// Defaults to false; set CLOUD_RUN_ENABLED=true to enable.
+	Enabled bool
+
+	// ProjectID is the GCP project for Cloud Run Jobs.
+	// If not set, defaults to BatchProvider.ProjectID.
+	ProjectID string
+
+	// Region is the GCP region for Cloud Run Jobs.
+	// If not set, defaults to BatchProvider.Region.
+	Region string
+
+	// ServiceAccount is the GCP service account email for Cloud Run executions (optional).
+	// If not set, uses the default service account.
+	ServiceAccount string
 }
 
 // DatabaseConfig contains database connection configuration.
@@ -58,6 +80,27 @@ func LoadFromEnv() (*Config, error) {
 		},
 	}
 
+	// Load Cloud Run Jobs configuration
+	config.CloudRun = CloudRunConfig{
+		Enabled: os.Getenv("CLOUD_RUN_ENABLED") == "true",
+	}
+	// Default Cloud Run ProjectID to BatchProvider.ProjectID if not explicitly set
+	if crProjectID := os.Getenv("CLOUD_RUN_PROJECT_ID"); crProjectID != "" {
+		config.CloudRun.ProjectID = crProjectID
+	} else {
+		config.CloudRun.ProjectID = config.BatchProvider.ProjectID
+	}
+	// Default Cloud Run Region to BatchProvider.Region if not explicitly set
+	if crRegion := os.Getenv("CLOUD_RUN_REGION"); crRegion != "" {
+		config.CloudRun.Region = crRegion
+	} else {
+		config.CloudRun.Region = config.BatchProvider.Region
+	}
+	// Load optional Cloud Run service account
+	if crServiceAccount := os.Getenv("CLOUD_RUN_SERVICE_ACCOUNT"); crServiceAccount != "" {
+		config.CloudRun.ServiceAccount = crServiceAccount
+	}
+
 	// Load provider-specific batch options
 	if awsAccountID := os.Getenv("AWS_ACCOUNT_ID"); awsAccountID != "" {
 		config.BatchProvider.ProviderOptions["account_id"] = awsAccountID
@@ -92,7 +135,7 @@ func LoadFromEnv() (*Config, error) {
 func (c *Config) Validate() error {
 	// Validate batch provider configuration
 	switch c.BatchProvider.Provider {
-	case "gcp", "gcp-cloudtasks", "gcp-cloudrun":
+	case "gcp", "gcp-cloudrun":
 		if c.BatchProvider.ProjectID == "" {
 			return fmt.Errorf("BATCH_PROJECT_ID is required for GCP batch provider")
 		}
@@ -115,6 +158,16 @@ func (c *Config) Validate() error {
 		}
 	default:
 		return fmt.Errorf("unsupported batch provider: %s", c.BatchProvider.Provider)
+	}
+
+	// Validate Cloud Run configuration (if enabled)
+	if c.CloudRun.Enabled {
+		if c.CloudRun.ProjectID == "" {
+			return fmt.Errorf("CLOUD_RUN_PROJECT_ID (or BATCH_PROJECT_ID fallback) is required when CLOUD_RUN_ENABLED=true")
+		}
+		if c.CloudRun.Region == "" {
+			return fmt.Errorf("CLOUD_RUN_REGION (or BATCH_REGION fallback) is required when CLOUD_RUN_ENABLED=true")
+		}
 	}
 
 	// Validate database configuration
@@ -184,6 +237,12 @@ New (environment variables):
   DB_INSTANCE=alphaus-dev
   DB_DATABASE=main
   WORKER_PORT=8081
+
+Cloud Run Jobs configuration (for SIMPLE/MEDIUM workloads):
+  CLOUD_RUN_ENABLED=true
+  CLOUD_RUN_PROJECT_ID=labs-169405  # Optional; defaults to BATCH_PROJECT_ID
+  CLOUD_RUN_REGION=asia-northeast1   # Optional; defaults to BATCH_REGION
+  CLOUD_RUN_SERVICE_ACCOUNT=optional-sa@project.iam.gserviceaccount.com  # Optional
 
 Example for AWS:
   BATCH_PROVIDER=aws

@@ -45,8 +45,7 @@ type AssignedService int
 
 const (
 	AssignedServiceUnspecified AssignedService = iota
-	// AssignedServiceCloudTasks routes the job to GCP Cloud Tasks.
-	AssignedServiceCloudTasks
+	_ // reserved (formerly Cloud Tasks)
 	// AssignedServiceCloudRunJob routes the job to GCP Cloud Run Jobs.
 	AssignedServiceCloudRunJob
 	// AssignedServiceCloudBatch routes the job to GCP Cloud Batch.
@@ -56,8 +55,6 @@ const (
 // String returns a human-readable label for the assigned service.
 func (a AssignedService) String() string {
 	switch a {
-	case AssignedServiceCloudTasks:
-		return "CLOUD_TASKS"
 	case AssignedServiceCloudRunJob:
 		return "CLOUD_RUN_JOB"
 	case AssignedServiceCloudBatch:

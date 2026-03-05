@@ -153,7 +153,6 @@ func TestComplexityLevelString(t *testing.T) {
 func TestAssignedServiceString(t *testing.T) {
 	cases := map[AssignedService]string{
 		AssignedServiceUnspecified: "UNSPECIFIED",
-		AssignedServiceCloudTasks:  "CLOUD_TASKS",
 		AssignedServiceCloudRunJob: "CLOUD_RUN_JOB",
 		AssignedServiceCloudBatch:  "CLOUD_BATCH",
 	}

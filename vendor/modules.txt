@@ -39,11 +39,6 @@ cloud.google.com/go/auth/oauth2adapt
 cloud.google.com/go/batch/apiv1
 cloud.google.com/go/batch/apiv1/batchpb
 cloud.google.com/go/batch/internal
-# cloud.google.com/go/cloudtasks v1.13.7
-## explicit; go 1.24.0
-cloud.google.com/go/cloudtasks/apiv2
-cloud.google.com/go/cloudtasks/apiv2/cloudtaskspb
-cloud.google.com/go/cloudtasks/internal
 # cloud.google.com/go/compute/metadata v0.9.0
 ## explicit; go 1.24.0
 cloud.google.com/go/compute/metadata

@@ -156,7 +156,7 @@ func (s *WorkerService) SubmitJob(
 
 	// Submit job to cloud batch provider.
 	// Use the navigator to classify the job and build configuration, then
-	// dispatch to the appropriate provider (Cloud Tasks / Cloud Run / Cloud Batch).
+	// dispatch to the appropriate provider (Cloud Run Jobs / Cloud Batch).
 	plan, err := navigator.Navigate(req.Msg, internalJobID, s.jobConfig)
 	if err != nil {
 		log.Printf("Error building navigation plan: %v", err)
@@ -510,10 +510,10 @@ func ptrBoolOrNil(v bool) *bool {
 }
 
 // serviceTierFromPlan maps a NavigationPlan's AssignedService to a database ServiceTier constant.
-// Both SIMPLE and MEDIUM router tiers map to ServiceTierSimple — Cloud Tasks has been removed.
+// Cloud Run Jobs routes to ServiceTierSimple (previously Cloud Tasks).
 func serviceTierFromPlan(plan *navigator.NavigationPlan) string {
 	switch plan.AssignedService {
-	case router.AssignedServiceCloudTasks, router.AssignedServiceCloudRunJob:
+	case router.AssignedServiceCloudRunJob:
 		return database.ServiceTierSimple
 	case router.AssignedServiceCloudBatch:
 		return database.ServiceTierComplex

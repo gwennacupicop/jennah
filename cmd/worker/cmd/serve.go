@@ -17,7 +17,7 @@ import (
 	"github.com/alphauslabs/jennah/cmd/worker/service"
 	"github.com/alphauslabs/jennah/gen/proto/jennahv1connect"
 	batch "github.com/alphauslabs/jennah/internal/cloudexec"
-	_ "github.com/alphauslabs/jennah/internal/cloudexec/gcp" // Register GCP providers (Cloud Batch, Cloud Tasks, Cloud Run)
+	_ "github.com/alphauslabs/jennah/internal/cloudexec/gcp" // Register GCP providers (Cloud Batch, Cloud Run)
 	"github.com/alphauslabs/jennah/internal/config"
 	"github.com/alphauslabs/jennah/internal/database"
 	"github.com/alphauslabs/jennah/internal/dispatcher"
@@ -65,23 +65,26 @@ func runServe(cmd *cobra.Command, args []string) error {
 		dispatcher.WithCloudBatch(batchProvider),
 	}
 
-	// Cloud Run Jobs provider (SIMPLE + MEDIUM jobs) — required for non-COMPLEX workloads.
-	// Enable via CLOUD_RUN_ENABLED=true. Without it, all SIMPLE jobs will fail.
-	if os.Getenv("CLOUD_RUN_ENABLED") == "true" {
+	// Cloud Run Jobs provider (SIMPLE/MEDIUM jobs) — configured via CLOUD_RUN_ENABLED=true.
+	// ProjectID and Region default to BatchProvider values; can be overridden via env vars.
+	// Without it enabled, all SIMPLE jobs will fail.
+	if cfg.CloudRun.Enabled {
 		crConfig := batch.ProviderConfig{
 			Provider:        "gcp-cloudrun",
-			ProjectID:       cfg.BatchProvider.ProjectID,
-			Region:          cfg.BatchProvider.Region,
+			ProjectID:       cfg.CloudRun.ProjectID,
+			Region:          cfg.CloudRun.Region,
 			ProviderOptions: make(map[string]string),
 		}
 		crProvider, err := batch.NewProvider(ctx, crConfig)
 		if err != nil {
 			log.Printf("Warning: failed to create Cloud Run Jobs provider: %v (SIMPLE jobs will fail)", err)
+			log.Printf("Warning: failed to create Cloud Run Jobs provider: %v (SIMPLE jobs will fail)", err)
 		} else {
 			dispatcherOpts = append(dispatcherOpts, dispatcher.WithCloudRunJobs(crProvider))
-			log.Println("Initialized Cloud Run Jobs provider for SIMPLE/MEDIUM jobs")
+			log.Printf("Initialized Cloud Run Jobs provider in region: %s", cfg.CloudRun.Region)
 		}
 	} else {
+		log.Println("WARNING: Cloud Run Jobs provider not configured (set CLOUD_RUN_ENABLED=true) — SIMPLE jobs will be rejected")
 		log.Println("WARNING: Cloud Run Jobs provider not configured (set CLOUD_RUN_ENABLED=true) — SIMPLE jobs will be rejected")
 	}
 

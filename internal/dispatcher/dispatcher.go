@@ -47,14 +47,7 @@ func New(opts ...Option) (*Dispatcher, error) {
 // Option configures a Dispatcher.
 type Option func(*Dispatcher)
 
-// WithCloudTasks registers a Cloud Tasks provider for SIMPLE jobs.
-func WithCloudTasks(p batch.Provider) Option {
-	return func(d *Dispatcher) {
-		d.providers[router.AssignedServiceCloudTasks] = p
-	}
-}
-
-// WithCloudRunJobs registers a Cloud Run Jobs provider for MEDIUM jobs.
+// WithCloudRunJobs registers a Cloud Run Jobs provider for SIMPLE jobs.
 func WithCloudRunJobs(p batch.Provider) Option {
 	return func(d *Dispatcher) {
 		d.providers[router.AssignedServiceCloudRunJob] = p

@@ -4,7 +4,6 @@ go 1.25
 
 require (
 	cloud.google.com/go/batch v1.14.0
-	cloud.google.com/go/cloudtasks v1.13.7
 	cloud.google.com/go/run v1.15.0
 	cloud.google.com/go/spanner v1.82.0
 	cloud.google.com/go/storage v1.56.0
