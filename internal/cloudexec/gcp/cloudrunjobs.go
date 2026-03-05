@@ -246,6 +246,24 @@ func (p *GCPCloudRunProvider) CancelJob(ctx context.Context, cloudResourcePath s
 	return nil
 }
 
+// DeleteJob deletes a Cloud Run Job resource.
+func (p *GCPCloudRunProvider) DeleteJob(ctx context.Context, cloudResourcePath string) error {
+	deleteOp, err := p.jobsClient.DeleteJob(ctx, &runpb.DeleteJobRequest{
+		Name: cloudResourcePath,
+	})
+	if err != nil {
+		return fmt.Errorf("failed to delete Cloud Run job: %w", err)
+	}
+
+	_, err = deleteOp.Wait(ctx)
+	if err != nil {
+		return fmt.Errorf("failed waiting for Cloud Run job deletion: %w", err)
+	}
+
+	log.Printf("Cloud Run job deleted: %s", cloudResourcePath)
+	return nil
+}
+
 // ListJobs lists all Cloud Run Jobs in the configured project/region.
 func (p *GCPCloudRunProvider) ListJobs(ctx context.Context) ([]string, error) {
 	parent := fmt.Sprintf("projects/%s/locations/%s", p.projectID, p.region)
@@ -269,6 +287,21 @@ func (p *GCPCloudRunProvider) ListJobs(ctx context.Context) ([]string, error) {
 	}
 
 	return jobNames, nil
+}
+
+// Close closes the Cloud Run Jobs and Executions clients.
+func (p *GCPCloudRunProvider) Close() error {
+	// Close jobsClient
+	if err := p.jobsClient.Close(); err != nil {
+		log.Printf("Error closing jobsClient: %v", err)
+	}
+
+	// Close executionClient
+	if err := p.executionClient.Close(); err != nil {
+		log.Printf("Error closing executionClient: %v", err)
+	}
+
+	return nil
 }
 
 // mapCloudRunStatus maps a Cloud Run Execution to a Jennah JobStatus.

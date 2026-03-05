@@ -131,6 +131,23 @@ func (p *AWSBatchProvider) CancelJob(ctx context.Context, cloudResourcePath stri
 	return fmt.Errorf("AWS Batch provider not fully implemented yet")
 }
 
+// DeleteJob deletes an AWS Batch job.
+// NOTE: Stub implementation - returns not implemented error.
+func (p *AWSBatchProvider) DeleteJob(ctx context.Context, cloudResourcePath string) error {
+	// Full implementation would:
+	// 1. Extract job ID from ARN
+	// 2. Call TerminateJob if still running
+	// 3. Call DeleteJobDefinition to clean up job definition
+	//
+	// input := &batch.TerminateJobInput{
+	//     JobId:  aws.String(jobID),
+	//     Reason: aws.String("Deleted by user"),
+	// }
+	// _, err := p.client.TerminateJob(ctx, input)
+
+	return fmt.Errorf("AWS Batch provider not fully implemented yet")
+}
+
 // ListJobs lists all jobs in the AWS account/region.
 // NOTE: Stub implementation - returns not implemented error.
 func (p *AWSBatchProvider) ListJobs(ctx context.Context) ([]string, error) {

@@ -101,3 +101,13 @@ func (d *Dispatcher) CancelJob(ctx context.Context, assignedService router.Assig
 
 	return p.CancelJob(ctx, cloudResourcePath)
 }
+
+// DeleteJob deletes a job using the provider that matches assignedService.
+func (d *Dispatcher) DeleteJob(ctx context.Context, assignedService router.AssignedService, cloudResourcePath string) error {
+	p, err := d.ProviderFor(assignedService)
+	if err != nil {
+		return err
+	}
+
+	return p.DeleteJob(ctx, cloudResourcePath)
+}

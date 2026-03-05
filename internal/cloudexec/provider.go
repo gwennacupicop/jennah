@@ -20,6 +20,10 @@ type Provider interface {
 	// CancelJob cancels a running job.
 	CancelJob(ctx context.Context, cloudResourcePath string) error
 
+	// DeleteJob deletes a job from the cloud provider.
+	// This also deletes the job from the database (Spanner) via the caller.
+	DeleteJob(ctx context.Context, cloudResourcePath string) error
+
 	// ListJobs lists all jobs for the configured project/account.
 	// Returns cloud resource paths.
 	ListJobs(ctx context.Context) ([]string, error)
